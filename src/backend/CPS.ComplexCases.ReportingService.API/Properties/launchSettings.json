@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "CPS.ComplexCases.ReportingService.API": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7188",
+      "launchBrowser": false
+    }
+  }
+}
