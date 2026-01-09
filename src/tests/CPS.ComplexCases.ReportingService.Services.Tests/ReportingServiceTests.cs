@@ -1,4 +1,3 @@
-using Castle.Core.Logging;
 using CPS.ComplexCases.ReportingService.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
