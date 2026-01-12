@@ -14,7 +14,7 @@ public class ReportingTimerTriggerLcc(ILogger<ReportingTimerTriggerLcc> logger, 
     public async Task GenerateLccReportsAsync([TimerTrigger("%TimerTriggerLccSchedule%")] TimerInfo myTimer)
     {
         var stopwatch = Stopwatch.StartNew();
-        _logger.LogInformation("LCC Report generation function executed at: {executionTime}", DateTime.Now);
+        _logger.LogInformation("LCC Report generation function executed at: {executionTime}", DateTime.UtcNow);
 
         try
         {

@@ -126,7 +126,7 @@ public class TelemetryServiceTests
     }
 
     [Fact]
-    public async Task QueryTransfersAsync_WhenOtherRequestFailedException_LogsErrorAndReturnsEmpty()
+    public async Task QueryTransfersAsync_WhenOtherRequestFailedException_LogsErrorAndThrows()
     {
         // Arrange
         var otherException = new RequestFailedException(
@@ -137,25 +137,24 @@ public class TelemetryServiceTests
             .Setup(x => x.ProcessQueryTransfersAsync(It.IsAny<string>()))
             .ThrowsAsync(otherException);
 
-        // Act
-        var result = await _telemetryService.QueryTransfersAsync();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<RequestFailedException>(
+            () => _telemetryService.QueryTransfersAsync());
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Empty(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, exception.Status);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("unexpected error")),
-                It.IsAny<Exception>(),
+                It.IsAny<RequestFailedException>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task QueryTransfersAsync_WhenGeneralException_LogsErrorAndReturnsEmpty()
+    public async Task QueryTransfersAsync_WhenGeneralException_LogsErrorAndThrows()
     {
         // Arrange
         var generalException = new InvalidOperationException("Something went wrong");
@@ -164,19 +163,18 @@ public class TelemetryServiceTests
             .Setup(x => x.ProcessQueryTransfersAsync(It.IsAny<string>()))
             .ThrowsAsync(generalException);
 
-        // Act
-        var result = await _telemetryService.QueryTransfersAsync();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _telemetryService.QueryTransfersAsync());
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Empty(result);
+        Assert.Equal("Something went wrong", exception.Message);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("unexpected error")),
-                It.IsAny<Exception>(),
+                It.IsAny<InvalidOperationException>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
@@ -230,18 +228,28 @@ public class TelemetryServiceTests
     }
 
     [Fact]
-    public async Task QueryTransfersAsync_WhenNullResult_ReturnsEmptyOnException()
+    public async Task QueryTransfersAsync_WhenNullReferenceException_LogsErrorAndThrows()
     {
         // Arrange
+        var nullRefException = new NullReferenceException("Null reference encountered");
+
         _queryProcessorMock
             .Setup(x => x.ProcessQueryTransfersAsync(It.IsAny<string>()))
-            .ThrowsAsync(new NullReferenceException());
+            .ThrowsAsync(nullRefException);
 
-        // Act
-        var result = await _telemetryService.QueryTransfersAsync();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<NullReferenceException>(
+            () => _telemetryService.QueryTransfersAsync());
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Empty(result);
+        Assert.Equal("Null reference encountered", exception.Message);
+
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("unexpected error")),
+                It.IsAny<NullReferenceException>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 }

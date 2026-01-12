@@ -74,7 +74,7 @@ public class TelemetryService(ILogger<TelemetryService> logger, IQueryProcessor 
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unexpected error occurred while querying transfers.");
-            return new List<QueryResultTransfer>();
+            throw;
         }
     }
 }

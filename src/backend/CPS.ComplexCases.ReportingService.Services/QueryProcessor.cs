@@ -11,6 +11,7 @@ public class QueryProcessor(ILogger<QueryProcessor> logger, LogsQueryClient logs
     private readonly ILogger<QueryProcessor> _logger = logger;
     private readonly LogsQueryClient _logsQueryClient = logsQueryClient;
     private readonly string _workspaceId = workspaceId;
+    private const string TimeRangeInDaysKey = "TimeRangeInDays";
 
     public async Task<IEnumerable<QueryResultTransfer>> ProcessQueryTransfersAsync(string query)
     {
@@ -50,12 +51,12 @@ public class QueryProcessor(ILogger<QueryProcessor> logger, LogsQueryClient logs
     /// </exception>
     private static double GetValidatedTimeRangeInDays()
     {
-        string? timeRangeEnv = Environment.GetEnvironmentVariable("TimeRangeInDays")?.Trim();
+        string? timeRangeEnv = Environment.GetEnvironmentVariable(TimeRangeInDaysKey)?.Trim();
         if (string.IsNullOrEmpty(timeRangeEnv) ||
             !double.TryParse(timeRangeEnv, NumberStyles.Float, CultureInfo.InvariantCulture, out double timeRangeDays) ||
             timeRangeDays <= 0)
         {
-            throw new InvalidOperationException($"The environment variable 'TimeRangeInDays' is not set, is empty, or contains an invalid value.");
+            throw new InvalidOperationException($"The environment variable '{TimeRangeInDaysKey}' is not set, is empty, or contains an invalid value.");
         }
 
         return timeRangeDays;

@@ -9,16 +9,17 @@ public class ReportingService(ILogger<ReportingService> logger, ITelemetryServic
     private readonly ILogger<ReportingService> _logger = logger;
     private readonly ITelemetryService _telemetryService = telemetryService;
     private readonly IBlobStorageService _blobStorageService = blobStorageService;
+    private const string BlobContainerNameKey = "BlobContainerNameReporting";
 
     public async Task ProcessReportAsync()
     {
         try
         {
-            string? containerName = Environment.GetEnvironmentVariable("BlobContainerNameReporting");
+            string? containerName = Environment.GetEnvironmentVariable(BlobContainerNameKey);
             if (string.IsNullOrEmpty(containerName))
             {
-                _logger.LogWarning("BlobContainerNameReporting is not configured.");
-                throw new InvalidOperationException("BlobContainerNameReporting is not configured.");
+                _logger.LogWarning("{BlobContainerNameKey} is not configured.", BlobContainerNameKey);
+                throw new InvalidOperationException($"{BlobContainerNameKey} is not configured.");
             }
 
             var sb = new StringBuilder(CreateFileHeader());
@@ -63,7 +64,7 @@ public class ReportingService(ILogger<ReportingService> logger, ITelemetryServic
     private static string CreateFileHeader()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("TransferId, CaseId, Username, TransferDirection, StartedTime, CompletedTime, Duration, TotalFiles, TransferredFiled, ErrorFiles, AverageTransferSpeedMbps");
+        sb.AppendLine("TransferId, CaseId, Username, TransferDirection, StartedTime, CompletedTime, Duration, TotalFiles, TransferredFiles, ErrorFiles, AverageTransferSpeedMbps");
         return sb.ToString();
     }
 
@@ -71,7 +72,7 @@ public class ReportingService(ILogger<ReportingService> logger, ITelemetryServic
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}",
+            "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}",
             transfer.TransferId,
             transfer.CaseId,
             transfer.Username,
