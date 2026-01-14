@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <UseSourceLink>true</UseSourceLink>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SingleHit>false</SingleHit>
+          <Exclude>
+            [*.Tests]*
+            [*.WireMock]*
+            [*]*.Migrations.*
+            [*]*Program*
+            [*]*Startup*
+          </Exclude>
+          <ExcludeByAttribute>
+            Obsolete
+            GeneratedCodeAttribute
+            CompilerGeneratedAttribute
+          </ExcludeByAttribute>
+          <ExcludeByFile>
+            **/Migrations/**
+            **/bin/**
+            **/obj/**
+          </ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings> 
