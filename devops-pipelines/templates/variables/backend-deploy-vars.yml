@@ -1,0 +1,13 @@
+parameters:
+- name: environment
+  type: string
+
+variables:
+- group: cm-backend-secrets-${{ parameters.environment }}
+- group: cm-backend-config-${{ parameters.environment }}
+- name: resourceGroupName
+  value: 'rg-cm-${{ parameters.environment }}' 
+- name: keyVaultName
+  value: 'kv-cm-api-${{ parameters.environment }}'
+- name: scripts_directory
+  value: '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts'

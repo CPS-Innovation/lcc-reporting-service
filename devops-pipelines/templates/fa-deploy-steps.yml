@@ -1,0 +1,75 @@
+parameters:
+  environment: ''
+  functionAppName: ''
+  buildArtifact: ''
+  keyVaultName: $(keyVaultName)
+  azureSubscription: ''
+  resourceGroupName: $(resourceGroupName)
+  deployToSlot: false
+  slotName: ''
+
+steps:
+  - template: ../templates/fa-config-steps.yml
+    parameters:
+      environment: ${{ parameters.environment }}
+      functionAppName: ${{ parameters.functionAppName }}
+      azureSubscription: ${{ parameters.azureSubscription }}
+      resourceGroupName: ${{ parameters.resourceGroupName }}
+      keyVaultName: ${{ parameters.keyVaultName }}
+      slotName: ${{ parameters.slotName }}
+
+  - task: AzureFunctionApp@2
+    displayName: 'Deploy Package to Azure Function App'
+    inputs:
+      azureSubscription: ${{ parameters.azureSubscription }}
+      appType: 'functionApp'
+      appName: ${{ parameters.functionAppName }}
+      package: '$(Pipeline.Workspace)/${{ parameters.buildArtifact }}/*.zip'
+      runtimeStack: 'DOTNET-ISOLATED|8.0'
+      deploymentMethod: 'runFromPackage'
+      deployToSlotOrASE: ${{ parameters.deployToSlot }}
+      slotName: ${{ parameters.slotName }}
+      resourceGroupName: ${{ parameters.resourceGroupName }}
+
+  - task: AzureCLI@2
+    displayName: 'Verify Function App Deployment'
+    inputs:
+      azureSubscription: ${{ parameters.azureSubscription }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        bash '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts/verifyDeployment.sh'
+    env:
+      APP_TYPE: functionapp
+      APP_NAME: ${{ parameters.functionAppName }}
+      RG: ${{ parameters.resourceGroupName }}
+      USE_SLOT: ${{ lower(parameters.deployToSlot) }}
+      SLOT_NAME: ${{ parameters.slotName }}
+
+  - task: Bash@3
+    displayName: 'Check Function App Health'
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Curl the app's Health API endpoint
+        echo "CURLing the live instance's Health API endpoint..."
+        HTTP_CODE=$(curl -X GET -s -o /dev/null -I -w "%{http_code}" "https://$(instanceName).azurewebsites.net/api/status")
+        
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "##[error]The endpoint did not return a 200 response."
+          echo "##[error]The HTTP code recieved was: "$HTTP_CODE"."
+          echo "##vso[task.logissue type=error]❌ The function app is not operational. A rollback may be required."
+          exit 1
+        fi
+
+        echo "✅ Function app is responsive and in a healthy state."
+
+  - task: AzureAppServiceManage@0
+    condition: and(succeeded(), ${{ eq(parameters.deployToSlot, true) }})
+    displayName: "Perform Slot Swap"
+    inputs:
+      azureSubscription: ${{ parameters.azureSubscription }}
+      WebAppName: ${{ parameters.functionAppName }}
+      ResourceGroupName: ${{ parameters.resourceGroupName }}
+      SourceSlot: ${{ parameters.slotName }}
+      SwapWithProduction: true 

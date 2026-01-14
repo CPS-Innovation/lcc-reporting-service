@@ -1,0 +1,176 @@
+parameters:
+  - name: environment
+    displayName: 'Target Environment'
+    type: string
+    default: 'dev'
+    values:
+      - dev
+      - staging
+      - prod
+  - name: agentPool
+    type: string
+    default: 'CM PreProd Pool'
+    values:
+      - 'CM PreProd Pool'
+      - 'CM Prod Pool'
+  - name: azureSubscription
+    type: string
+    default: 'Azure Pipeline: Case Management - Pre-Prod'
+  - name: requireValidation
+    type: boolean
+    default: false
+  - name: notifyUsers
+    type: string
+    default: ''
+  - name: approvers
+    type: string
+    default: ''  
+  - name: deployToSlot
+    type: boolean
+    default: false
+  - name: slotName
+    type: string
+    default: ''
+
+stages:
+- stage: Approve_Deployment_${{ parameters.environment }}
+  displayName: 'CM ${{ parameters.environment }} - Approve Deployment'
+  condition: and(succeeded(), ${{ eq(parameters.requireValidation, true) }})
+  jobs:
+  - template: ./manual-validation-jobs.yml
+    parameters:
+      instructions: 'Please verify the deployment to the lower environment worked as expected before approving deployment to ${{parameters.environment}}.'
+      notifyUsers: ${{ parameters.notifyUsers }}
+      approvers: ${{ parameters.approvers }}
+
+- stage: Build_Deploy_${{ parameters.environment }}
+  displayName: '${{ parameters.environment }} - Build & Deploy Web App'
+  ${{ if eq(parameters.requireValidation, true) }}:
+    dependsOn: Approve_Deployment_${{ parameters.environment }}
+  ${{ else }}:
+    dependsOn: []
+  variables:
+    buildArtifact: 'cm-ui-${{ parameters.environment }}-drop'
+  jobs:
+    - job: Build_and_Publish_Artifact
+      displayName: 'Build UI SPA for the ${{ parameters.environment}} environment'
+      pool: ${{ parameters.agentPool }}
+      variables:
+      - group: cm-ui-config-${{ parameters.environment }}
+      - name: nodeVersion
+        value: '20.x'
+      - name: workingDir
+        value: 'src/ui-spa'
+      steps:
+        - checkout: self
+          sparseCheckoutDirectories: '$(workingDir)'
+
+        - task: UseNode@1
+          displayName: 'Use Node.js'
+          inputs:
+            version: '$(nodeVersion)'
+
+        - task: Npm@1
+          displayName: 'Install NPM Dependencies'
+          inputs:
+            command: 'ci'
+            workingDir: '$(workingDir)'
+
+        - task: Npm@1
+          displayName: 'Build Web App Package'
+          inputs:
+            command: 'custom'
+            customCommand: 'run build'
+            workingDir: '$(workingDir)'
+          env:
+            VITE_GATEWAY_BASE_URL: $(VITE_GATEWAY_BASE_URL)
+            VITE_GATEWAY_SCOPE: $(VITE_GATEWAY_SCOPE)
+            VITE_CLIENT_ID: $(VITE_CLIENT_ID)
+            VITE_TENANT_ID: $(VITE_TENANT_ID) 
+            VITE_PRIVATE_BETA_USER_GROUP: $(VITE_PRIVATE_BETA_USER_GROUP)
+            VITE_PRIVATE_BETA_CONTACT_EMAIL: $(VITE_PRIVATE_BETA_CONTACT_EMAIL)
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish Web App Package'
+          inputs:
+            targetPath: '$(workingDir)/dist'
+            artifact: '$(buildArtifact)'
+
+    - deployment: Deploy_UI
+      displayName: 'Deploy UI SPA to the ${{ parameters.environment}} environment'
+      dependsOn: Build_and_Publish_Artifact
+      environment: 'CM-UI-${{ parameters.environment }}'
+      pool: ${{ parameters.agentPool }}
+      variables:
+        - name: resourceGroupName
+          value: 'rg-cm-${{ parameters.environment }}'
+        - name: webAppName
+          value: 'cm-app-ui-spa-${{ parameters.environment }}'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureRmWebAppDeployment@4
+                inputs:
+                  ConnectionType: 'AzureRM'
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  resourceGroupName: $(resourceGroupName)
+                  appType: 'webAppLinux'
+                  WebAppName: '$(webAppName)'
+                  deployToSlotOrASE: ${{ parameters.deployToSlot }}
+                  slotName: ${{ parameters.slotName }}
+                  packageForLinux: '$(Pipeline.Workspace)/$(buildArtifact)'
+                  RuntimeStack: 'NODE|20-lts'
+                  StartupCommand: 'pm2 serve /home/site/wwwroot/ --no-daemon --spa'   
+                displayName: 'Deploy app to ${{ parameters.environment }}'
+            
+              - checkout: self
+                sparseCheckoutDirectories: devops-pipelines/scripts
+                fetchDepth: 1
+
+              - task: Bash@3
+                displayName: 'Ensure Azure CLI'
+                inputs:
+                  targetType: 'inline'
+                  script: |
+                    echo "Checking if Azure CLI is installed..."
+                    
+                    # Check if az command exists
+                    if command -v az &> /dev/null; then
+                      echo "Azure CLI is already installed"
+                      az --version
+                      exit 0
+                    fi
+                    echo "Azure CLI not found, installing..."
+                    bash '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts/installAzureCli.sh'
+
+              - task: AzureCLI@2
+                displayName: 'Verify App Deployment'
+                inputs:
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  scriptType: 'bash'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    bash '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts/verifyDeployment.sh'
+                env:
+                  APP_TYPE: webapp
+                  APP_NAME: $(webAppName)
+                  RG: $(resourceGroupName)
+                  USE_SLOT: ${{ lower(parameters.deployToSlot) }}
+                  SLOT_NAME: ${{ parameters.slotName }}
+
+    # ADD step to verify deployment in the staging slot e.g health check, smoke test etc.
+
+              - task: AzureAppServiceManage@0
+                condition: and(succeeded(), ${{ eq(parameters.deployToSlot, true) }})
+                displayName: "Perform Slot Swap"
+                inputs:
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  WebAppName: $(webAppName)
+                  ResourceGroupName: $(resourceGroupName)
+                  SourceSlot: ${{ parameters.slotName }}
+                  SwapWithProduction: true 
+
+              - template: ../templates/runner-cleanup-steps.yml
+                parameters:
+                  buildArtifact: $(buildArtifact)

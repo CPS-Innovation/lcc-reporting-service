@@ -1,0 +1,47 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/backend/*
+
+variables:
+  buildConfiguration: 'Release'
+  dotNetVersion: '8.x'
+  testResultsDirectory: '$(Agent.TempDirectory)/TestResults'
+
+pool: 'CM PreProd Pool'
+
+stages:
+  - stage: Build_And_Test_Backend
+    displayName: 'Build, Test & Package'
+    jobs:
+      - job: Build_And_Test_Solution
+        displayName: 'Build & Test Solution'
+        steps:
+          - template: ../templates/dotnet-build-steps.yml
+            parameters:
+              projectPath: 'src/backend/Cps.CaseManagement.sln'
+              projectName: 'Backend Solution'
+              buildConfiguration: '$(buildConfiguration)'
+              dotNetVersion: $(dotNetVersion)
+              publishOutput: false
+              runTests: true
+              testResultsDirectory: $(testResultsDirectory)
+
+      - job: Build_Main_API
+        displayName: 'Build Main API'
+        dependsOn: Build_And_Test_Solution
+        steps:
+          # Build and publish Main API
+          - template: ../templates/dotnet-build-steps.yml
+            parameters:
+              projectPath: 'src/backend/Cps.CaseManagement.Api/Cps.CaseManagement.Api.csproj'
+              projectName: 'cm-main-api-drop'
+              buildConfiguration: $(buildConfiguration)
+              dotNetVersion: $(dotNetVersion)
+              publishOutput: false
+              runTests: false

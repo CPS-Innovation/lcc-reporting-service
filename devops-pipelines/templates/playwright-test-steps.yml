@@ -1,0 +1,29 @@
+parameters:
+  workingDir: 'src/ui-spa'
+
+steps:
+  - task: Npm@1
+    displayName: 'Install Playwright Browsers'
+    inputs:
+      command: 'custom'
+      customCommand: 'exec playwright install -- --with-deps'
+      workingDir: ${{ parameters.workingDir }}
+  
+  - task: Npm@1
+    displayName: 'Run Integration Tests in CI Mode'
+    inputs:
+      command: 'custom'
+      customCommand: 'run ui:integration:ci'
+      workingDir: ${{ parameters.workingDir }}
+
+  - publish: '${{ parameters.workingDir }}/playwright-report'
+    artifact: 'integration-test-report'
+    displayName: 'Upload Integration Test Report As Pipeline Artifact'  
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Integration Test Results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '${{ parameters.workingDir }}/integration-test-results.xml'
+      publishRunAttachments: true
+    condition: always()

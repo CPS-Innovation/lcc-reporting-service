@@ -1,0 +1,61 @@
+parameters:
+- name: environment
+  type: string
+- name: projectAcronym
+  type: string
+  default: cm
+- name: postmanCollectionPath
+  type: string
+- name: appName
+  type: string
+- name: nodeVersion
+  type: string
+
+jobs:
+- job: Run_Postman_Tests_with_Newman_${{parameters.environment}}
+  variables:
+  - group: ${{parameters.projectAcronym}}-backend-config-${{parameters.environment}}
+  - group: ${{parameters.projectAcronym}}-backend-secrets-${{parameters.environment}}
+  - group: ${{parameters.projectAcronym}}-automated-testing
+  steps:
+  - task: UseNode@1
+    displayName: 'Use Node.js'
+    inputs:
+      version: ${{parameters.nodeVersion}}
+
+  - script: |
+      if command -v newman &> /dev/null; then
+        echo "Newman already installed. Skipping installation."
+      else
+        echo "Installing newman and html reporter..."
+        npm install -g --ignore-scripts newman@6.2.1 newman-reporter-htmlextra@1.23.1
+        echo "newman version: $(newman -v)"
+        echo "newman-reporter-htmlextra version: $(newman-reporter-htmlextra -v)"
+      fi
+    displayName: 'Install Newman Tools'
+
+  - script: |
+        newman run ${{parameters.postmanCollectionPath}} \
+        --env-var "baseUrl=https://${{parameters.appName}}.azurewebsites.net" \
+        --env-var "tenantId=$(TenantId)" \
+        --env-var "clientId=$(CallingAppValidAudience)" \
+        --env-var "clientSecret=$(PostmanClientSecret)" \
+        --env-var "scope=api://$(CallingAppValidAudience)/.default" \
+        --env-var "mdsBaseUrl=$(MdsOptionsBaseUrl)" \
+        --env-var "mdsAccessKey=$(MdsOptionsAccessKey)" \
+        --env-var "cmsUsername=$(CmsUserName)" \
+        --env-var "cmsPassword=$(CmsUserPassword)" \
+        --reporters cli,junit,htmlextra \
+        --reporter-junit-export "$(Build.ArtifactStagingDirectory)/newman-report-${{parameters.environment}}.xml" \
+        --reporter-htmlextra-export "$(Build.ArtifactStagingDirectory)/newman-report-${{parameters.environment}}.html" \
+        --reporter-htmlextra-skipSensitiveData --reporter-htmlextra-logs
+    displayName: 'Run Postman Collection'
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '$(Build.ArtifactStagingDirectory)/newman-report-${{parameters.environment}}.xml'
+    displayName: 'Publish Newman Report' 
+  
+  - publish: '$(Build.ArtifactStagingDirectory)/newman-report-${{parameters.environment}}.html'
+    artifact: '${{parameters.environment}}NewmanReportHTML'

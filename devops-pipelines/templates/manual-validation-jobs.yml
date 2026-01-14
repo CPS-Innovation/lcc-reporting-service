@@ -1,0 +1,60 @@
+parameters:
+- name: instructions
+  type: string
+  default: 'The pipeline needs your approval to continue.'
+- name: notifyUsers
+  type: string
+  default: ''
+- name: approvers
+  type: string
+  default: ''
+
+jobs:
+- job: Set_Flag
+  displayName: "Set the 'isFriday' Flag"
+  pool: 'CM PreProd Pool'
+  steps:
+  - script: |
+      isFriday=false
+      
+      echo "Fetching the day of the week. This will determine which Manual_Validation job to run..."
+      dayOfWeek=$(TZ=Europe/London date +%A)
+    
+      if [ "$dayOfWeek" == "Friday" ]; then
+        isFriday=true
+      fi
+
+      echo "Today is $dayOfWeek. Setting isFriday to $isFriday."
+      echo "##vso[task.setVariable variable=isFriday;isOutput=true]$isFriday"
+    name: SetFlag
+    displayName: 'Determine if Today is Friday'
+
+- job: Manual_Validation_Weekday
+  dependsOn: Set_Flag
+  condition: eq(dependencies.Set_Flag.outputs['SetFlag.isFriday'], 'false')
+  pool: server
+  timeoutInMinutes: 1500
+  steps:
+  - task: ManualValidation@1
+    timeoutInMinutes: 1440
+    inputs:
+      notifyUsers: ${{ parameters.notifyUsers }}
+      approvers: ${{ parameters.approvers }}
+      allowApproversToApproveTheirOwnRuns: true
+      instructions: ${{ parameters.instructions }} 
+      onTimeout: 'reject'
+
+- job: Manual_Validation_Friday
+  dependsOn: Set_Flag
+  condition: eq(dependencies.Set_Flag.outputs['SetFlag.isFriday'], 'true')
+  pool: server
+  timeoutInMinutes: 4380
+  steps:
+  - task: ManualValidation@1
+    timeoutInMinutes: 4320
+    inputs:
+      notifyUsers: ${{ parameters.notifyUsers }}
+      approvers: ${{ parameters.approvers }}
+      allowApproversToApproveTheirOwnRuns: true
+      instructions: ${{ parameters.instructions }}
+      onTimeout: 'reject'
