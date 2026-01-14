@@ -12,8 +12,8 @@ variables:
   value: 'Release'
 - name: 'dotNetVersion'
   value: '8.x'
-- name: 'buildArtifact'
-  value: 'lacc-reporting-drop'
+- name: 'projectName'
+  value: 'lacc-reporting-api'
 
 stages:
   - stage: Build
@@ -25,8 +25,8 @@ stages:
         steps:
           - template: templates/dotnet-build-steps.yml
             parameters:
-              projectPath: 'src/backend/Cps.CaseManagement.Api/Cps.CaseManagement.Api.csproj'
-              projectName: $(buildArtifact)
+              projectPath: 'src\backend\CPS.ComplexCases.ReportingService.API\CPS.ComplexCases.ReportingService.API.csproj'
+              projectName: $(projectName)
               buildConfiguration: $(buildConfiguration)
               dotNetVersion: $(dotNetVersion)
               useLocalNuGet: true
@@ -38,7 +38,7 @@ stages:
       dependsOn: 'Build'        
       environment: 'dev'
       requireValidation: false
-      buildArtifact: $(buildArtifact)
+      buildArtifact: $(projectName)
 
   # - template: templates/backend-deploy-stages.yml
   #   parameters:
@@ -49,7 +49,7 @@ stages:
   #     approvers: $(preprodApprovers)
   #     deployToSlot: true
   #     slotName: 'stg'
-  #     buildArtifact: $(buildArtifact)
+  #     buildArtifact: $(projectName)
 
   # - template: templates/backend-deploy-stages.yml
   #   parameters:
@@ -62,4 +62,4 @@ stages:
   #     azureSubscription: 'Azure Pipeline: Large and Complex Cases - Prod'
   #     deployToSlot: true
   #     slotName: 'stg'
-  #     buildArtifact: $(buildArtifact)
+  #     buildArtifact: $(projectName)
