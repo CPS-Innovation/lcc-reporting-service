@@ -25,7 +25,7 @@ stages:
         steps:
           - template: templates/dotnet-build-steps.yml
             parameters:
-              projectPath: 'src\backend\CPS.ComplexCases.ReportingService.API\CPS.ComplexCases.ReportingService.API.csproj'
+              projectPath: 'src/backend/CPS.ComplexCases.ReportingService.API/CPS.ComplexCases.ReportingService.API.csproj'
               projectName: $(projectName)
               buildConfiguration: $(buildConfiguration)
               dotNetVersion: $(dotNetVersion)
