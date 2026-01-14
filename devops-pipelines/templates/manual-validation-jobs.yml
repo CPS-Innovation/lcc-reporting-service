@@ -10,7 +10,8 @@ parameters:
   default: ''
 - name: agentPool
   type: string
-  
+  default: ''
+
 jobs:
 - job: Set_Flag
   displayName: "Set the 'isFriday' Flag"
