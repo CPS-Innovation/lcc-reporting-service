@@ -1,0 +1,15 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "TimerTriggerLccSchedule": "0 0 0 * * *",
+        "BlobContainerNameReporting": "lcc-reports-dev",
+        "BlobStorageAccountUrl": "<blob-storage-account-url>",
+        "TimeRangeInDays": "1.0",
+        "APPLICATIONINSIGHTS_WORKSPACEID": "<workspace-id>",
+        "AZURE_TENANT_ID": "<azure-tenant-id>",
+        "AZURE_CLIENT_ID": "<azure-client-id>",
+        "AZURE_CLIENT_SECRET": "<azure-client-secret>"
+    }
+}
