@@ -3,30 +3,27 @@ trigger:
   branches:
     include:
       - main
-  paths:
-    include:
-      - src/backend/*
 
 pr: none
 
 variables:
-- group: 'cm-deployment-global'
+- group: 'lacc-deployment-global'
 - name: 'buildConfiguration'
   value: 'Release'
 - name: 'dotNetVersion'
   value: '8.x'
 - name: 'buildArtifact'
-  value: 'cm-main-api-drop'
+  value: 'lacc-reporting-drop'
 
 stages:
   - stage: Build
     displayName: 'Build Main API'
-    pool: 'CM PreProd Pool'
+    pool: 'LACC PreProd Pool'
     jobs:
       - job: Build_Main_API
         displayName: 'Build Main API'
         steps:
-          - template: ../templates/dotnet-build-steps.yml
+          - template: templates/dotnet-build-steps.yml
             parameters:
               projectPath: 'src/backend/Cps.CaseManagement.Api/Cps.CaseManagement.Api.csproj'
               projectName: $(buildArtifact)
@@ -36,45 +33,33 @@ stages:
               publishOutput: true
               runTests: false
   
-  - template: ../templates/backend-deploy-stages.yml
+  - template: templates/backend-deploy-stages.yml
     parameters:
       dependsOn: 'Build'        
       environment: 'dev'
       requireValidation: false
       buildArtifact: $(buildArtifact)
 
-  - stage: Run_Postman_Tests_dev
-    displayName: 'Dev - Run Postman Tests'
-    dependsOn: 'Deploy_Backend_dev' # final stage of /templates/backend-deploy-stages.yml
-    pool: 'CM PreProd Pool'
-    jobs:
-    - template: ../templates/postman-test-job.yml
-      parameters:
-        appName: 'fa-cm-api-dev'
-        environment: 'dev'
-        postmanCollectionPath: '$(System.DefaultWorkingDirectory)/src/backend/postman/CaseRegistrationAPITests.postman_collection.json'
-        nodeVersion: '20.x'
+  # - template: templates/backend-deploy-stages.yml
+  #   parameters:
+  #     dependsOn: 'Build'
+  #     environment: 'staging'
+  #     requireValidation: true
+  #     notifyUsers: $(preprodNotifyUsers)
+  #     approvers: $(preprodApprovers)
+  #     deployToSlot: true
+  #     slotName: 'stg'
+  #     buildArtifact: $(buildArtifact)
 
-  - template: ../templates/backend-deploy-stages.yml
-    parameters:
-      dependsOn: 'Build'
-      environment: 'staging'
-      requireValidation: true
-      notifyUsers: $(notifyUsers)
-      approvers: $(approvers)
-      deployToSlot: true
-      slotName: 'stg'
-      buildArtifact: $(buildArtifact)
-
-  # - template: ../templates/backend-deploy-stages.yml
+  # - template: templates/backend-deploy-stages.yml
   #   parameters:
   #     dependsOn: 'Build'
   #     environment: 'prod'
   #     requireValidation: true
-  #     notifyUsers: $(notifyUsers)
-  #     approvers: $(approvers)
-  #     agentPool: 'CM Prod Pool'
-  #     azureSubscription: 'Azure Pipeline: Case Management - Prod'
+  #     notifyUsers: $(prodNotifyUsers)
+  #     approvers: $(prodApprovers)
+  #     agentPool: 'LACC Prod Pool'
+  #     azureSubscription: 'Azure Pipeline: Large and Complex Cases - Prod'
   #     deployToSlot: true
   #     slotName: 'stg'
   #     buildArtifact: $(buildArtifact)

@@ -4,6 +4,7 @@ echo "🔐 Only storing sensitive secrets in Key Vault"
 
 # Hash table of secret keys to their secret values
 declare -A secrets_array=(
+    [AZURE_CLIENT_SECRET]=$AZURE_CLIENT_SECRET
 )
 
 exit_code=0

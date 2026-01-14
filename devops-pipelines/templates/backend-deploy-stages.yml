@@ -9,10 +9,10 @@ parameters:
       - prod
   - name: agentPool
     type: string
-    default: 'CM PreProd Pool'
+    default: 'LACC PreProd Pool'
     values:
-      - 'CM PreProd Pool'
-      - 'CM Prod Pool'
+      - 'LACC PreProd Pool'
+      - 'LACC Prod Pool'
   - name: requireValidation
     type: boolean
     default: false
@@ -24,7 +24,7 @@ parameters:
     default: ''
   - name: azureSubscription
     type: string
-    default: 'Azure Pipeline: Case Management - Pre-Prod'
+    default: 'Azure Pipeline: Large and Complex Cases - Pre-Prod'
   - name: deployToSlot
     type: boolean
     default: false
@@ -63,7 +63,7 @@ stages:
   jobs:
     - deployment: Deploy_Backend
       displayName: '${{ parameters.environment }} - Deploy Backend'
-      environment: 'CM-Backend-${{ parameters.environment }}'
+      environment: 'LACC-Reporting-${{ parameters.environment }}'
       strategy:
         runOnce:
           deploy:
@@ -102,13 +102,13 @@ stages:
                     bash $(scripts_directory)/populateKV.sh
                 env:
                   KEY_VAULT_NAME: $(keyVaultName)
-                  MDS_OPTIONS_ACCESS_KEY: $(MdsOptionsAccessKey)
+                  AZURE_CLIENT_SECRET: $(AzureClientSecret)
                   
               - template: ./fa-deploy-steps.yml
                 parameters:
                   environment: ${{ parameters.environment }}
                   azureSubscription: ${{ parameters.azureSubscription }}
-                  functionAppName: 'fa-cm-api-${{ parameters.environment }}'
+                  functionAppName: 'fa-lacc-reporting-api-${{ parameters.environment }}'
                   buildArtifact: ${{ parameters.buildArtifact }}
                   deployToSlot: ${{ parameters.deployToSlot }}
                   slotName: ${{ parameters.slotName }}

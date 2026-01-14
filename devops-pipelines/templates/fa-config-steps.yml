@@ -28,29 +28,39 @@ steps:
             "value": "https://${{ parameters.keyVaultName }}.vault.azure.net/",
             "slotSetting": false
           },
-          {
-            "name": "TenantId",
-            "value": "$(TenantId)",
+          { 
+            "name": "TimerTriggerLccSchedule",
+            "value": "$(TimerTriggerLccSchedule)",
             "slotSetting": false
           },
-          {
-            "name": "CallingAppValidAudience",
-            "value": "$(CallingAppValidAudience)",
+          { 
+            "name": "TimeRangeInDays",
+            "value": "$(TimeRangeInDays)",
             "slotSetting": false
           },
-          {
-            "name": "MdsOptions__BaseUrl",
-            "value": "$(MdsOptionsBaseUrl)",
+          { 
+            "name": "BlobContainerNameReporting",
+            "value": "lcc-reports-${{ parameters.environment }}",
             "slotSetting": false
           },
-          {
-            "name": "RedirectUrl__CaseworkApp",
-            "value": "$(RedirectUrlCaseworkApp)",
+          { 
+            "name": "BlobStorageAccountUrl",
+            "value": "$(BlobStorageAccountUrl)",
             "slotSetting": false
           },
-          {
-            "name": "RedirectUrl__CaseManagementUi",
-            "value": "$(RedirectUrlCaseManagementUi)",
+          { 
+            "name": "APPLICATIONINSIGHTS_WORKSPACEID",
+            "value": "$(ApplicationInsightsWorkspaceId)",
+            "slotSetting": false
+          },
+          { 
+            "name": "AZURE_TENANT_ID",
+            "value": "$(AzureTenantId)",
+            "slotSetting": false
+          },
+          { 
+            "name": "AZURE_CLIENT_ID",
+            "value": "$(AzureClientId)",
             "slotSetting": false
           },
           {

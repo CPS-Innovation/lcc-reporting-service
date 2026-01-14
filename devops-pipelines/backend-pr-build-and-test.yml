@@ -4,16 +4,13 @@ pr:
   branches:
     include:
       - main
-  paths:
-    include:
-      - src/backend/*
 
 variables:
   buildConfiguration: 'Release'
   dotNetVersion: '8.x'
   testResultsDirectory: '$(Agent.TempDirectory)/TestResults'
 
-pool: 'CM PreProd Pool'
+pool: 'LACC PreProd Pool'
 
 stages:
   - stage: Build_And_Test_Backend
@@ -22,9 +19,9 @@ stages:
       - job: Build_And_Test_Solution
         displayName: 'Build & Test Solution'
         steps:
-          - template: ../templates/dotnet-build-steps.yml
+          - template: templates/dotnet-build-steps.yml
             parameters:
-              projectPath: 'src/backend/Cps.CaseManagement.sln'
+              projectPath: 'lcc-reporting-service.sln'
               projectName: 'Backend Solution'
               buildConfiguration: '$(buildConfiguration)'
               dotNetVersion: $(dotNetVersion)
@@ -37,10 +34,10 @@ stages:
         dependsOn: Build_And_Test_Solution
         steps:
           # Build and publish Main API
-          - template: ../templates/dotnet-build-steps.yml
+          - template: templates/dotnet-build-steps.yml
             parameters:
-              projectPath: 'src/backend/Cps.CaseManagement.Api/Cps.CaseManagement.Api.csproj'
-              projectName: 'cm-main-api-drop'
+              projectPath: 'src/backend/CPS.ComplexCases.ReportingService.API/CPS.ComplexCases.ReportingService.API.csproj'
+              projectName: 'lacc-reporting-drop' 
               buildConfiguration: $(buildConfiguration)
               dotNetVersion: $(dotNetVersion)
               publishOutput: false

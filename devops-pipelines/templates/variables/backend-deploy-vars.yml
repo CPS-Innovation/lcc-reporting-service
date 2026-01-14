@@ -3,11 +3,11 @@ parameters:
   type: string
 
 variables:
-- group: cm-backend-secrets-${{ parameters.environment }}
-- group: cm-backend-config-${{ parameters.environment }}
+- group: lacc-reporting-secrets-${{ parameters.environment }}
+- group: lacc-reporting-config-${{ parameters.environment }}
 - name: resourceGroupName
-  value: 'rg-cm-${{ parameters.environment }}' 
+  value: 'rg-lacc-${{ parameters.environment }}' 
 - name: keyVaultName
-  value: 'kv-cm-api-${{ parameters.environment }}'
+  value: 'kv-lacc-${{ parameters.environment }}'
 - name: scripts_directory
   value: '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts'
