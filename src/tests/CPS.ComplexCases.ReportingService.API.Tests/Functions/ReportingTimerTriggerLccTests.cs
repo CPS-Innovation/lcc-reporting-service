@@ -63,10 +63,11 @@ public class ReportingTimerTriggerLccTests
     }
 
     [Fact]
-    public async Task GenerateLccReportsAsync_Exception()
+    public async Task GenerateLccReportsAsync_Exception_RethrowsException()
     {
         // Arrange
         string exceptionMessage = "Simulated exception during LCC report generation";
+
         _reportingServiceMock
             .Setup(service => service.ProcessReportAsync())
             .ThrowsAsync(new Exception(exceptionMessage));
@@ -82,27 +83,35 @@ public class ReportingTimerTriggerLccTests
         };
 
         // Act
-        await _function.GenerateLccReportsAsync(timerInfo);
+        var exception = await Assert.ThrowsAsync<Exception>(
+            () => _function.GenerateLccReportsAsync(timerInfo));
 
-        // Assert
+        // Assert - exception
+        Assert.Equal(exceptionMessage, exception.Message);
+
+        // Assert - logging before failure
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("LCC Report generation function executed at:")),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString()!.Contains("LCC Report generation function executed at:")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
+        // Assert - error logging
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error occurred while generating LCC Reports")),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString()!.Contains("Error occurred while generating LCC Reports")),
                 It.Is<Exception>(ex => ex.Message == exceptionMessage),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
+        // Assert - service call
         _reportingServiceMock.Verify(r => r.ProcessReportAsync(), Times.Once);
     }
 }
