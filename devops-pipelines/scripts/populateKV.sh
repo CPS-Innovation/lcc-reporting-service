@@ -4,8 +4,13 @@ echo "🔐 Only storing sensitive secrets in Key Vault"
 
 # Hash table of secret keys to their secret values
 declare -A secrets_array=(
-    [AZURE_CLIENT_SECRET]=$AZURE_CLIENT_SECRET
+    # Add key-value pairs here. Values should be references to secret variables added via env.
 )
+
+if [ "${#secrets_array[@]}" -eq 0 ]; then
+    echo "The hash table secrets_array is empty. No secrets will be added to the Key Vault."
+    exit 1
+fi
 
 exit_code=0
 

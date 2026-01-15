@@ -2,7 +2,7 @@ parameters:
   projectPath: ''
   projectName: ''
   buildConfiguration: 'Release'
-  dotNetVersion: '8.x'
+  dotNetVersion: '10.x'
   publishOutput: false
   runTests: false
   testResultsDirectory: ''

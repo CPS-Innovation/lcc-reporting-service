@@ -3,7 +3,8 @@ parameters:
   type: string
 
 variables:
-- group: lacc-reporting-secrets-${{ parameters.environment }}
+# # Uncomment if any sensitive variables need adding to key vault:
+# - group: lacc-reporting-secrets-${{ parameters.environment }}
 - group: lacc-reporting-config-${{ parameters.environment }}
 - name: resourceGroupName
   value: 'rg-lacc-${{ parameters.environment }}' 

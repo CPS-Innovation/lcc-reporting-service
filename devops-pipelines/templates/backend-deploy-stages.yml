@@ -91,18 +91,18 @@ stages:
 
                     echo "Azure CLI not found, installing..."
                     bash '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts/installAzureCli.sh'
-   
-              - task: AzureCLI@2
-                displayName: '${{ parameters.environment }} - Initialize Key Vault Secrets from Variable Groups'
-                inputs:
-                  azureSubscription: ${{ parameters.azureSubscription }}
-                  scriptType: 'bash'
-                  scriptLocation: 'inlineScript'
-                  inlineScript: |
-                    bash $(scripts_directory)/populateKV.sh
-                env:
-                  KEY_VAULT_NAME: $(keyVaultName)
-                  AZURE_CLIENT_SECRET: $(AzureClientSecret)
+
+              # # Uncomment if any sensitive variables need adding to key vault:
+              # - task: AzureCLI@2
+              #   displayName: '${{ parameters.environment }} - Initialize Key Vault Secrets from Variable Groups'
+              #   inputs:
+              #     azureSubscription: ${{ parameters.azureSubscription }}
+              #     scriptType: 'bash'
+              #     scriptLocation: 'inlineScript'
+              #     inlineScript: |
+              #       bash $(scripts_directory)/populateKV.sh
+              #   env:
+              #     KEY_VAULT_NAME: $(keyVaultName) # Add references to all secret variables below
                   
               - template: ./fa-deploy-steps.yml
                 parameters:

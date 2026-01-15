@@ -11,7 +11,7 @@ variables:
 - name: 'buildConfiguration'
   value: 'Release'
 - name: 'dotNetVersion'
-  value: '8.x'
+  value: '10.x'
 - name: 'projectName'
   value: 'lacc-reporting-api'
 

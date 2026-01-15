@@ -53,16 +53,6 @@ steps:
             "value": "$(ApplicationInsightsWorkspaceId)",
             "slotSetting": false
           },
-          { 
-            "name": "AZURE_TENANT_ID",
-            "value": "$(AzureTenantId)",
-            "slotSetting": false
-          },
-          { 
-            "name": "AZURE_CLIENT_ID",
-            "value": "$(AzureClientId)",
-            "slotSetting": false
-          },
           {
             "name": "FUNCTIONS_EXTENSION_VERSION",
             "value": "~4",

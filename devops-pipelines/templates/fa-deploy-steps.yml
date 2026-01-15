@@ -25,7 +25,7 @@ steps:
       appType: 'functionApp'
       appName: ${{ parameters.functionAppName }}
       package: '$(Pipeline.Workspace)/${{ parameters.buildArtifact }}/*.zip'
-      runtimeStack: 'DOTNET-ISOLATED|8.0'
+      runtimeStack: 'DOTNET-ISOLATED|10.0'
       deploymentMethod: 'runFromPackage'
       deployToSlotOrASE: ${{ parameters.deployToSlot }}
       slotName: ${{ parameters.slotName }}
