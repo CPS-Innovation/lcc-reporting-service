@@ -4,26 +4,34 @@ using CPS.ComplexCases.ReportingService.Domain.Models;
 
 namespace CPS.ComplexCases.ReportingService.Services;
 
-public class ReportingService(ILogger<ReportingService> logger, ITelemetryService telemetryService, IBlobStorageService blobStorageService) : IReportingService
+public class ReportingService : IReportingService
 {
-    private readonly ILogger<ReportingService> _logger = logger;
-    private readonly ITelemetryService _telemetryService = telemetryService;
-    private readonly IBlobStorageService _blobStorageService = blobStorageService;
-    private const string BlobContainerNameKey = "BlobContainerNameReporting";
+    private readonly ILogger<ReportingService> _logger;
+    private readonly ITelemetryService _telemetryService;
+    private readonly IBlobStorageService _blobStorageService;
+    private readonly string _containerName;
+
+    public ReportingService(
+        ILogger<ReportingService> logger,
+        ITelemetryService telemetryService,
+        IBlobStorageService blobStorageService,
+        string containerName)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
+        _blobStorageService = blobStorageService ?? throw new ArgumentNullException(nameof(blobStorageService));
+
+        if (string.IsNullOrWhiteSpace(containerName))
+            throw new ArgumentException("Container name cannot be null or empty.", nameof(containerName));
+
+        _containerName = containerName;
+    }
 
     public async Task ProcessReportAsync()
     {
         try
         {
-            string? containerName = Environment.GetEnvironmentVariable(BlobContainerNameKey);
-            if (string.IsNullOrEmpty(containerName))
-            {
-                _logger.LogWarning("{BlobContainerNameKey} is not configured.", BlobContainerNameKey);
-                throw new InvalidOperationException($"{BlobContainerNameKey} is not configured.");
-            }
-
             var sb = new StringBuilder(CreateFileHeader());
-
             var transfers = await _telemetryService.QueryTransfersAsync();
 
             if (transfers == null || !transfers.Any())
@@ -38,8 +46,7 @@ public class ReportingService(ILogger<ReportingService> logger, ITelemetryServic
                 sb.AppendLine(AppendFileLine(transfer));
             }
 
-            await _blobStorageService.UploadBlobContentAsync(containerName, GenerateFileNameInFolder(), sb.ToString());
-
+            await _blobStorageService.UploadBlobContentAsync(_containerName, GenerateFileNameInFolder(), sb.ToString());
         }
         catch (Exception ex)
         {
@@ -51,13 +58,10 @@ public class ReportingService(ILogger<ReportingService> logger, ITelemetryServic
     private static string GenerateFileNameInFolder()
     {
         DateTime now = DateTime.UtcNow;
-
         // Specify a folder name using the year and month
         string folderName = now.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-
         // Generate the file name with the current date under the specified folder
         string fileName = $"{folderName}/LCC_Transfer_Report_{now:yyyy-MM-dd}.csv";
-
         return fileName;
     }
 
