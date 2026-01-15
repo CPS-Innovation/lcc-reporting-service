@@ -2,46 +2,41 @@ using Azure.Identity;
 using Azure.Monitor.Query;
 using Azure.Storage.Blobs;
 using CPS.ComplexCases.ReportingService.Services;
+using Microsoft.ApplicationInsights.WorkerService;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
-    .ConfigureLogging((context, logging) =>
-    {
-        // Clear providers to avoid conflicts with default filtering
-        logging.ClearProviders();
-
-        var connectionString = context.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
-        if (!string.IsNullOrEmpty(connectionString))
-        {
-            logging.AddApplicationInsights(
-                configureTelemetryConfiguration: (config) => config.ConnectionString = connectionString,
-                configureApplicationInsightsLoggerOptions: (options) => { }
-            );
-        }
-
-        if (context.HostingEnvironment.IsDevelopment())
-        {
-            logging.AddConsole();
-        }
-
-        // Read minimum log level from configuration, fallback to Information if not set or invalid
-        var logLevelString = context.Configuration["Logging:LogLevel:Default"];
-        if (!Enum.TryParse<LogLevel>(logLevelString, true, out var minLevel))
-        {
-            minLevel = LogLevel.Information;
-        }
-        logging.SetMinimumLevel(minLevel);
-    })
+    .ConfigureLogging(options => options.AddApplicationInsights())
     .ConfigureServices((context, services) =>
     {
         services
-            .AddApplicationInsightsTelemetryWorkerService()
+            .AddApplicationInsightsTelemetryWorkerService(new ApplicationInsightsServiceOptions
+            {
+                EnableAdaptiveSampling = false,
+                ConnectionString = context.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]
+            })
             .ConfigureFunctionsApplicationInsights();
+
+        services.Configure<LoggerFilterOptions>(options =>
+        {
+            // See: https://learn.microsoft.com/en-us/azure/azure-functions/dotnet-isolated-process-guide?tabs=windows#managing-log-levels
+            // The Application Insights SDK adds a default logging filter that instructs ILogger to capture only Warning and more severe logs. Application Insights requires an explicit override.
+            // Log levels can also be configured using appsettings.json. For more information, see https://learn.microsoft.com/en-us/azure/azure-monitor/app/worker-service#ilogger-logs
+            var toRemove = options.Rules
+                .FirstOrDefault(rule =>
+                    string.Equals(rule.ProviderName, typeof(ApplicationInsightsLoggerProvider).FullName));
+
+            if (toRemove is not null)
+            {
+                options.Rules.Remove(toRemove);
+            }
+        });
 
         services.AddSingleton<BlobServiceClient>(provider =>
         {
@@ -63,14 +58,34 @@ var host = new HostBuilder()
 
         services.AddSingleton<LogsQueryClient>(new LogsQueryClient(new DefaultAzureCredential()));
 
-        // Register QueryProcessor and pass workspaceId
         services.AddSingleton<IQueryProcessor>(provider =>
-            new QueryProcessor(
+        {
+            var timeRangeEnv = context.Configuration["TimeRangeInDays"];
+            if (string.IsNullOrEmpty(timeRangeEnv) || !double.TryParse(timeRangeEnv, out var days) || days <= 0)
+            {
+                throw new InvalidOperationException("TimeRangeInDays is not configured or invalid.");
+            }
+            return new QueryProcessor(
                 provider.GetRequiredService<ILogger<QueryProcessor>>(),
                 provider.GetRequiredService<LogsQueryClient>(),
-                workspaceId));
+                workspaceId, days);
+        });
 
-        services.AddSingleton<IReportingService, ReportingService>();
+        services.AddSingleton<IReportingService>(provider =>
+        {
+            var containerName = context.Configuration["BlobContainerNameReporting"];
+            if (string.IsNullOrEmpty(containerName))
+            {
+                throw new InvalidOperationException("BlobContainerNameReporting is missing in configuration.");
+            }
+
+            return new ReportingService(
+                provider.GetRequiredService<ILogger<ReportingService>>(),
+                provider.GetRequiredService<ITelemetryService>(),
+                provider.GetRequiredService<IBlobStorageService>(),
+                containerName);
+        });
+
         services.AddSingleton<ITelemetryService, TelemetryService>();
     })
     .Build();

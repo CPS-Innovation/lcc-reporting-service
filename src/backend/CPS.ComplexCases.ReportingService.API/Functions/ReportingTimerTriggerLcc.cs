@@ -24,6 +24,7 @@ public class ReportingTimerTriggerLcc(ILogger<ReportingTimerTriggerLcc> logger, 
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while generating LCC Reports.");
+            throw;
         }
     }
 }

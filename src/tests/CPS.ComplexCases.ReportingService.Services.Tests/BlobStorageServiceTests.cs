@@ -16,7 +16,9 @@ public class BlobStorageServiceTests
     {
         _loggerMock = new Mock<ILogger<BlobStorageService>>();
         _blobServiceClientMock = new Mock<BlobServiceClient>();
-        _blobStorageService = new BlobStorageService(_loggerMock.Object, _blobServiceClientMock.Object);
+        _blobStorageService = new BlobStorageService(
+            _loggerMock.Object,
+            _blobServiceClientMock.Object);
     }
 
     [Fact]
@@ -35,7 +37,10 @@ public class BlobStorageServiceTests
             .Returns(mockContainerClient.Object);
 
         mockContainerClient
-            .Setup(x => x.CreateIfNotExistsAsync(It.IsAny<PublicAccessType>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.CreateIfNotExistsAsync(
+                It.IsAny<PublicAccessType>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<Response<BlobContainerInfo>>());
 
         mockContainerClient
@@ -43,22 +48,38 @@ public class BlobStorageServiceTests
             .Returns(mockBlobClient.Object);
 
         mockBlobClient
-            .Setup(x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.UploadAsync(
+                It.IsAny<BinaryData>(),
+                true,
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<Response<BlobContentInfo>>());
 
         // Act
         await _blobStorageService.UploadBlobContentAsync(containerName, blobName, content);
 
         // Assert
-        _blobServiceClientMock.Verify(x => x.GetBlobContainerClient(containerName), Times.Once);
-        mockContainerClient.Verify(x => x.GetBlobClient(blobName), Times.Once);
-        mockBlobClient.Verify(x => x.UploadAsync(It.IsAny<Stream>(), true, It.IsAny<CancellationToken>()), Times.Once);
+        _blobServiceClientMock.Verify(
+            x => x.GetBlobContainerClient(containerName),
+            Times.Once);
+
+        mockContainerClient.Verify(
+            x => x.GetBlobClient(blobName),
+            Times.Once);
+
+        mockBlobClient.Verify(
+            x => x.UploadAsync(
+                It.IsAny<BinaryData>(),
+                true,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(blobName) && v.ToString()!.Contains(containerName)),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v.ToString()!.Contains(blobName) &&
+                    v.ToString()!.Contains(containerName)),
                 null,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -74,14 +95,17 @@ public class BlobStorageServiceTests
 
         var mockContainerClient = new Mock<BlobContainerClient>();
         var mockBlobClient = new Mock<BlobClient>();
-        Stream? capturedStream = null;
+        BinaryData? capturedBinaryData = null;
 
         _blobServiceClientMock
             .Setup(x => x.GetBlobContainerClient(containerName))
             .Returns(mockContainerClient.Object);
 
         mockContainerClient
-            .Setup(x => x.CreateIfNotExistsAsync(It.IsAny<PublicAccessType>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.CreateIfNotExistsAsync(
+                It.IsAny<PublicAccessType>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<Response<BlobContainerInfo>>());
 
         mockContainerClient
@@ -89,12 +113,13 @@ public class BlobStorageServiceTests
             .Returns(mockBlobClient.Object);
 
         mockBlobClient
-            .Setup(x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<Stream, bool, CancellationToken>((stream, overwrite, token) =>
+            .Setup(x => x.UploadAsync(
+                It.IsAny<BinaryData>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<BinaryData, bool, CancellationToken>((data, _, _) =>
             {
-                var memoryStream = new MemoryStream();
-                stream.CopyTo(memoryStream);
-                capturedStream = memoryStream;
+                capturedBinaryData = data;
             })
             .ReturnsAsync(Mock.Of<Response<BlobContentInfo>>());
 
@@ -102,11 +127,8 @@ public class BlobStorageServiceTests
         await _blobStorageService.UploadBlobContentAsync(containerName, blobName, content);
 
         // Assert
-        Assert.NotNull(capturedStream);
-        capturedStream.Position = 0;
-        using var reader = new StreamReader(capturedStream);
-        var uploadedContent = await reader.ReadToEndAsync();
-        Assert.Equal(content, uploadedContent);
+        Assert.NotNull(capturedBinaryData);
+        Assert.Equal(content, capturedBinaryData!.ToString());
     }
 
     [Fact]
@@ -116,6 +138,7 @@ public class BlobStorageServiceTests
         const string containerName = "test-container";
         const string blobName = "test-blob.json";
         const string content = "test content";
+
         var expectedException = new RequestFailedException("Storage error");
 
         _blobServiceClientMock
@@ -124,7 +147,7 @@ public class BlobStorageServiceTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<RequestFailedException>(
-            async () => await _blobStorageService.UploadBlobContentAsync(containerName, blobName, content));
+            () => _blobStorageService.UploadBlobContentAsync(containerName, blobName, content));
 
         Assert.Equal("Storage error", exception.Message);
 
@@ -132,7 +155,9 @@ public class BlobStorageServiceTests
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(blobName) && v.ToString()!.Contains(containerName)),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v.ToString()!.Contains(blobName) &&
+                    v.ToString()!.Contains(containerName)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -145,6 +170,7 @@ public class BlobStorageServiceTests
         const string containerName = "test-container";
         const string blobName = "test-blob.json";
         const string content = "test content";
+
         var expectedException = new RequestFailedException("Upload failed");
 
         var mockContainerClient = new Mock<BlobContainerClient>();
@@ -155,7 +181,10 @@ public class BlobStorageServiceTests
             .Returns(mockContainerClient.Object);
 
         mockContainerClient
-            .Setup(x => x.CreateIfNotExistsAsync(It.IsAny<PublicAccessType>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.CreateIfNotExistsAsync(
+                It.IsAny<PublicAccessType>(),
+                It.IsAny<IDictionary<string, string>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(Mock.Of<Response<BlobContainerInfo>>());
 
         mockContainerClient
@@ -163,12 +192,15 @@ public class BlobStorageServiceTests
             .Returns(mockBlobClient.Object);
 
         mockBlobClient
-            .Setup(x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.UploadAsync(
+                It.IsAny<BinaryData>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<RequestFailedException>(
-            async () => await _blobStorageService.UploadBlobContentAsync(containerName, blobName, content));
+            () => _blobStorageService.UploadBlobContentAsync(containerName, blobName, content));
 
         Assert.Equal("Upload failed", exception.Message);
 
@@ -176,7 +208,9 @@ public class BlobStorageServiceTests
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(blobName) && v.ToString()!.Contains(containerName)),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v.ToString()!.Contains(blobName) &&
+                    v.ToString()!.Contains(containerName)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
