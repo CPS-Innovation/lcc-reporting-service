@@ -46,23 +46,24 @@ steps:
       USE_SLOT: ${{ lower(parameters.deployToSlot) }}
       SLOT_NAME: ${{ parameters.slotName }}
 
-  - task: Bash@3
-    displayName: 'Check Function App Health'
-    inputs:
-      targetType: 'inline'
-      script: |
-        # Curl the app's Health API endpoint
-        echo "CURLing the live instance's Health API endpoint..."
-        HTTP_CODE=$(curl -X GET -s -o /dev/null -I -w "%{http_code}" "https://$(instanceName).azurewebsites.net/api/status")
+  # # Uncomment if a /status endpoint is available:
+  # - task: Bash@3
+  #   displayName: 'Check Function App Health'
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       # Curl the app's Health API endpoint
+  #       echo "CURLing the live instance's Health API endpoint..."
+  #       HTTP_CODE=$(curl -X GET -s -o /dev/null -I -w "%{http_code}" "https://$(instanceName).azurewebsites.net/api/status")
         
-        if [ "$HTTP_CODE" != "200" ]; then
-          echo "##[error]The endpoint did not return a 200 response."
-          echo "##[error]The HTTP code recieved was: "$HTTP_CODE"."
-          echo "##vso[task.logissue type=error]❌ The function app is not operational. A rollback may be required."
-          exit 1
-        fi
+  #       if [ "$HTTP_CODE" != "200" ]; then
+  #         echo "##[error]The /status endpoint did not return a 200 response."
+  #         echo "##[error]The HTTP code recieved was: "$HTTP_CODE"."
+  #         echo "##vso[task.logissue type=error]❌ The /status endpoint did not return a 200 response. A rollback may be required."
+  #         exit 1
+  #       fi
 
-        echo "✅ Function app is responsive and in a healthy state."
+  #       echo "✅ Function app is responsive and in a healthy state."
 
   - task: AzureAppServiceManage@0
     condition: and(succeeded(), ${{ eq(parameters.deployToSlot, true) }})
