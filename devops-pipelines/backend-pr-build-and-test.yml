@@ -4,6 +4,9 @@ pr:
   branches:
     include:
       - main
+  paths:
+    include:
+      - src/*
 
 variables:
   buildConfiguration: 'Release'
