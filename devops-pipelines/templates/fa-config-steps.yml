@@ -65,7 +65,7 @@ steps:
           },
           {
             "name": "DOTNET_FRAMEWORK_VERSION",
-            "value": "v8.0",
+            "value": "v10.0",
             "slotSetting": false
           },
           {
