@@ -1,0 +1,8 @@
+root = true
+
+[*.cs]
+# IDE0005: Using directive is unnecessary
+dotnet_diagnostic.IDE0005.severity = error
+
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false

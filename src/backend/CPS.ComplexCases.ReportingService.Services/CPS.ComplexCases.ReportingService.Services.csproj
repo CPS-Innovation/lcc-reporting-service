@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Azure.Monitor.Query" Version="1.6.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\CPS.ComplexCases.ReportingService.Domain\CPS.ComplexCases.ReportingService.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
