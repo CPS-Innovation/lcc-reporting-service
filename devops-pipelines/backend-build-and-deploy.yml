@@ -1,0 +1,68 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/*
+
+pr: none
+
+variables:
+- group: 'lacc-deployment-global'
+- name: 'buildConfiguration'
+  value: 'Release'
+- name: 'dotNetVersion'
+  value: '10.x'
+- name: 'projectName'
+  value: 'lacc-reporting-api'
+
+stages:
+  - stage: Build
+    displayName: 'Build Main API'
+    pool: 'LACC PreProd Pool'
+    jobs:
+      - job: Build_Main_API
+        displayName: 'Build Main API'
+        steps:
+          - template: templates/dotnet-build-steps.yml
+            parameters:
+              projectPath: 'src/backend/CPS.ComplexCases.ReportingService.API/CPS.ComplexCases.ReportingService.API.csproj'
+              projectName: $(projectName)
+              buildConfiguration: $(buildConfiguration)
+              dotNetVersion: $(dotNetVersion)
+              useLocalNuGet: true
+              publishOutput: true
+              runTests: false
+  
+  - template: templates/backend-deploy-stages.yml
+    parameters:
+      dependsOn: 'Build'        
+      environment: 'dev'
+      requireValidation: false
+      buildArtifact: $(projectName)
+
+  # - template: templates/backend-deploy-stages.yml
+  #   parameters:
+  #     dependsOn: 'Build'
+  #     environment: 'staging'
+  #     requireValidation: true
+  #     notifyUsers: $(preprodNotifyUsers)
+  #     approvers: $(preprodApprovers)
+  #     deployToSlot: true
+  #     slotName: 'stg'
+  #     buildArtifact: $(projectName)
+
+  # - template: templates/backend-deploy-stages.yml
+  #   parameters:
+  #     dependsOn: 'Build'
+  #     environment: 'prod'
+  #     requireValidation: true
+  #     notifyUsers: $(prodNotifyUsers)
+  #     approvers: $(prodApprovers)
+  #     agentPool: 'LACC Prod Pool'
+  #     azureSubscription: 'Azure Pipeline: Large and Complex Cases - Prod'
+  #     deployToSlot: true
+  #     slotName: 'stg'
+  #     buildArtifact: $(projectName)

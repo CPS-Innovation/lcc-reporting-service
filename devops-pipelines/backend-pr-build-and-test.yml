@@ -1,0 +1,47 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/*
+
+variables:
+  buildConfiguration: 'Release'
+  dotNetVersion: '10.x'
+  testResultsDirectory: '$(Agent.TempDirectory)/TestResults'
+
+pool: 'LACC PreProd Pool'
+
+stages:
+  - stage: Build_And_Test_Backend
+    displayName: 'Build, Test & Package'
+    jobs:
+      - job: Build_And_Test_Solution
+        displayName: 'Build & Test Solution'
+        steps:
+          - template: templates/dotnet-build-steps.yml
+            parameters:
+              projectPath: 'lcc-reporting-service.sln'
+              projectName: 'Backend Solution'
+              buildConfiguration: '$(buildConfiguration)'
+              dotNetVersion: $(dotNetVersion)
+              publishOutput: false
+              runTests: true
+              testResultsDirectory: $(testResultsDirectory)
+
+      - job: Build_Main_API
+        displayName: 'Build Main API'
+        dependsOn: Build_And_Test_Solution
+        steps:
+          # Build and publish Main API
+          - template: templates/dotnet-build-steps.yml
+            parameters:
+              projectPath: 'src/backend/CPS.ComplexCases.ReportingService.API/CPS.ComplexCases.ReportingService.API.csproj'
+              projectName: 'lacc-reporting-drop' 
+              buildConfiguration: $(buildConfiguration)
+              dotNetVersion: $(dotNetVersion)
+              publishOutput: false
+              runTests: false

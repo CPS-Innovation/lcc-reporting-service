@@ -1,0 +1,29 @@
+parameters:
+  workingDirectory: $(Pipeline.Workspace)
+  buildArtifact: ''
+
+steps:
+  - task: bash@3
+    displayName: "Cleanup Downloaded Artifact"
+    inputs:
+      targetType: 'inline'
+      workingDirectory: ${{ parameters.workingDirectory }}
+      script: |
+        echo "Attempting to clean up downloaded artifact directory ${{ parameters.buildArtifact }}..."
+
+        if [ -d "${{ parameters.buildArtifact }}" ]; then
+            if ! rm -r "${{ parameters.buildArtifact }}" 2>err.log; then
+                cat err.log >&2
+                exit 1
+            fi
+
+            echo "The directory ${{ parameters.buildArtifact }} was removed successfully."
+            exit 0
+        else
+            echo "The directory ${{ parameters.buildArtifact }} was not found in the working directory."
+            echo "The working directory is $(pwd)."
+            echo "Listing the contents of the working directory:"
+            ls
+
+            echo "##vso[task.logissue type=warning]The downloaded build artifact could not be deleted. Please make sure the correct working directory was set."
+        fi

@@ -1,0 +1,14 @@
+parameters:
+- name: environment
+  type: string
+
+variables:
+# # Uncomment if any sensitive variables need adding to key vault:
+# - group: lacc-reporting-secrets-${{ parameters.environment }}
+- group: lacc-reporting-config-${{ parameters.environment }}
+- name: resourceGroupName
+  value: 'rg-lacc-${{ parameters.environment }}' 
+- name: keyVaultName
+  value: 'kv-lacc-${{ parameters.environment }}'
+- name: scripts_directory
+  value: '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts'

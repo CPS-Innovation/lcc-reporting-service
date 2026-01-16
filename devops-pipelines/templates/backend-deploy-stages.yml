@@ -1,0 +1,118 @@
+parameters:
+  - name: environment
+    displayName: 'Target Environment'
+    type: string
+    default: 'dev'
+    values:
+      - dev
+      - staging
+      - prod
+  - name: agentPool
+    type: string
+    default: 'LACC PreProd Pool'
+    values:
+      - 'LACC PreProd Pool'
+      - 'LACC Prod Pool'
+  - name: requireValidation
+    type: boolean
+    default: false
+  - name: notifyUsers
+    type: string
+    default: ''
+  - name: approvers
+    type: string
+    default: ''
+  - name: azureSubscription
+    type: string
+    default: 'Azure Pipeline: Large and Complex Cases - Pre-Prod'
+  - name: deployToSlot
+    type: boolean
+    default: false
+  - name: slotName
+    type: string
+    default: ''
+  - name: dependsOn
+    type: string
+  - name: buildArtifact
+    type: string
+
+stages:
+- stage: Approve_Deployment_${{ parameters.environment }}
+  displayName: '${{ parameters.environment }} - Approve Deployment'
+  condition: and(succeeded(), ${{ eq(parameters.requireValidation, true) }})
+  jobs:
+  - template: ./manual-validation-jobs.yml
+    parameters:
+      instructions: 'Please verify the deployment to the lower environment worked as expected before approving deployment to ${{parameters.environment}}.'
+      notifyUsers: ${{ parameters.notifyUsers }}
+      approvers: ${{ parameters.approvers }}
+
+- stage:  Deploy_Backend_${{ parameters.environment }}
+  displayName: '${{ parameters.environment }} - Deploy Backend'
+  ${{ if eq(parameters.requireValidation, true) }}:
+    dependsOn: 
+    - ${{ parameters.dependsOn }}
+    - Approve_Deployment_${{ parameters.environment }}
+  ${{ else }}:
+    dependsOn: ${{ parameters.dependsOn }}
+  variables:
+  - template: ./variables/backend-deploy-vars.yml
+    parameters: 
+      environment: ${{ parameters.environment }}
+  pool: ${{ parameters.agentPool }}
+  jobs:
+    - deployment: Deploy_Backend
+      displayName: '${{ parameters.environment }} - Deploy Backend'
+      environment: 'LACC-Reporting-${{ parameters.environment }}'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+                sparseCheckoutDirectories: devops-pipelines/scripts
+                fetchDepth: 1
+              
+              - download: 'current'
+                artifact: ${{ parameters.buildArtifact }}
+
+              - task: Bash@3
+                displayName: 'Ensure Azure CLI'
+                inputs:
+                  targetType: 'inline'
+                  script: |
+                    echo "Checking if Azure CLI is installed..."
+                    
+                    # Check if az command exists
+                    if command -v az &> /dev/null; then
+                      echo "Azure CLI is already installed"
+                      az --version
+                      exit 0
+                    fi
+
+                    echo "Azure CLI not found, installing..."
+                    bash '$(System.DefaultWorkingDirectory)/devops-pipelines/scripts/installAzureCli.sh'
+
+              # # Uncomment if any sensitive variables need adding to key vault:
+              # - task: AzureCLI@2
+              #   displayName: '${{ parameters.environment }} - Initialize Key Vault Secrets from Variable Groups'
+              #   inputs:
+              #     azureSubscription: ${{ parameters.azureSubscription }}
+              #     scriptType: 'bash'
+              #     scriptLocation: 'inlineScript'
+              #     inlineScript: |
+              #       bash $(scripts_directory)/populateKV.sh
+              #   env:
+              #     KEY_VAULT_NAME: $(keyVaultName) # Add references to all secret variables below
+                  
+              - template: ./fa-deploy-steps.yml
+                parameters:
+                  environment: ${{ parameters.environment }}
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  functionAppName: 'fa-lacc-reporting-api-${{ parameters.environment }}'
+                  buildArtifact: ${{ parameters.buildArtifact }}
+                  deployToSlot: ${{ parameters.deployToSlot }}
+                  slotName: ${{ parameters.slotName }}
+                  
+              - template: ./runner-cleanup-steps.yml
+                parameters:
+                  buildArtifact: ${{ parameters.buildArtifact }}
