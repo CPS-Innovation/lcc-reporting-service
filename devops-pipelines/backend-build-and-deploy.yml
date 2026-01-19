@@ -43,26 +43,22 @@ stages:
       requireValidation: false
       buildArtifact: $(projectName)
 
-  # - template: templates/backend-deploy-stages.yml
-  #   parameters:
-  #     dependsOn: 'Build'
-  #     environment: 'staging'
-  #     requireValidation: true
-  #     notifyUsers: $(preprodNotifyUsers)
-  #     approvers: $(preprodApprovers)
-  #     deployToSlot: true
-  #     slotName: 'stg'
-  #     buildArtifact: $(projectName)
+  - template: templates/backend-deploy-stages.yml
+    parameters:
+      dependsOn: 'Build'
+      environment: 'staging'
+      requireValidation: true
+      notifyUsers: $(preprodNotifyUsers)
+      approvers: $(preprodApprovers)
+      buildArtifact: $(projectName)
 
-  # - template: templates/backend-deploy-stages.yml
-  #   parameters:
-  #     dependsOn: 'Build'
-  #     environment: 'prod'
-  #     requireValidation: true
-  #     notifyUsers: $(prodNotifyUsers)
-  #     approvers: $(prodApprovers)
-  #     agentPool: 'LACC Prod Pool'
-  #     azureSubscription: 'Azure Pipeline: Large and Complex Cases - Prod'
-  #     deployToSlot: true
-  #     slotName: 'stg'
-  #     buildArtifact: $(projectName)
+  - template: templates/backend-deploy-stages.yml
+    parameters:
+      dependsOn: 'Build'
+      environment: 'prod'
+      requireValidation: true
+      notifyUsers: $(prodNotifyUsers)
+      approvers: $(prodApprovers)
+      agentPool: 'LACC Prod Pool'
+      azureSubscription: 'Azure Pipeline: Large and Complex Cases - Prod'
+      buildArtifact: $(projectName)
