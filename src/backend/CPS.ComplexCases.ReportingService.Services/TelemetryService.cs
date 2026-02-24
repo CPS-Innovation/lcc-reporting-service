@@ -58,6 +58,7 @@ public class TelemetryService(ILogger<TelemetryService> logger, IQueryProcessor 
             TotalFiles = totalFiles,
             TransferredFiles = transferredFiles,
             ErrorFiles = errorFiles,
+            TotalMegaBytesTransferred = round(totalBytes / 1024.0 / 1024.0, 3),
             TransferSpeedMbps = iff(durationSeconds > 0, round((totalBytes / 1024.0 / 1024.0) / durationSeconds, 3), 0.0)
         | order by InitiatedTime desc
     ";

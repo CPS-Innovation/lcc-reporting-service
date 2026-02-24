@@ -12,5 +12,10 @@ public class QueryResultTransfer
     public int? TotalFiles { get; set; }
     public int? TransferredFiles { get; set; }
     public int? ErrorFiles { get; set; }
+    public double? TotalMegaBytesTransferred { get; set; }
     public double? TransferSpeedMbps { get; set; }
+    public string TransferStatus =>
+        (ErrorFiles ?? 0) == 0 ? "Success" :
+        (TransferredFiles ?? 0) == 0 ? "Failed" :
+        "Partial";
 }

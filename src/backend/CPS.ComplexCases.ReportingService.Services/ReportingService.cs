@@ -68,7 +68,7 @@ public class ReportingService : IReportingService
     private static string CreateFileHeader()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("TransferId, CaseId, Username, TransferDirection, StartedTime, CompletedTime, Duration, TotalFiles, TransferredFiles, ErrorFiles, AverageTransferSpeedMbps");
+        sb.AppendLine("TransferId, CaseId, Username, TransferDirection, StartedTime, CompletedTime, Duration, TotalFiles, TransferredFiles, ErrorFiles, TotalMegaBytesTransferred, AverageTransferSpeedMbps, TransferStatus");
         return sb.ToString();
     }
 
@@ -76,7 +76,7 @@ public class ReportingService : IReportingService
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}",
+            "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
             transfer.TransferId,
             transfer.CaseId,
             transfer.Username,
@@ -87,7 +87,9 @@ public class ReportingService : IReportingService
             transfer.TotalFiles,
             transfer.TransferredFiles,
             transfer.ErrorFiles,
-            transfer.TransferSpeedMbps
+            transfer.TotalMegaBytesTransferred,
+            transfer.TransferSpeedMbps,
+            transfer.TransferStatus
         );
     }
 }
