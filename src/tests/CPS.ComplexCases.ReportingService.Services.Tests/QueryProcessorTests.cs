@@ -46,6 +46,7 @@ public class QueryProcessorTests
                 TotalFiles = 10,
                 TransferredFiles = 10,
                 ErrorFiles = 0,
+                TotalMegaBytesTransferred = 183.6,
                 TransferSpeedMbps = 25.5
             },
             new()
@@ -60,6 +61,7 @@ public class QueryProcessorTests
                 TotalFiles = 5,
                 TransferredFiles = 4,
                 ErrorFiles = 1,
+                TotalMegaBytesTransferred = 15.2,
                 TransferSpeedMbps = 15.2
             }
         };

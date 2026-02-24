@@ -38,6 +38,7 @@ public class TelemetryServiceTests
                 TotalFiles = 10,
                 TransferredFiles = 10,
                 ErrorFiles = 0,
+                TotalMegaBytesTransferred = 1980.0,
                 TransferSpeedMbps = 5.5
             }
         };
@@ -79,6 +80,7 @@ public class TelemetryServiceTests
         Assert.Contains("TRANSFER_COMPLETED", capturedQuery);
         Assert.Contains("TRANSFER_FAILED", capturedQuery);
         Assert.Contains("join kind=inner", capturedQuery);
+        Assert.Contains("TotalMegaBytesTransferred", capturedQuery);
     }
 
     [Fact]
