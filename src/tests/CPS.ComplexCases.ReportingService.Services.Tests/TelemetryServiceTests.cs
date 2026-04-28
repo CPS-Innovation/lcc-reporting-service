@@ -74,12 +74,35 @@ public class TelemetryServiceTests
 
         // Assert
         Assert.NotNull(capturedQuery);
+
+        // Source and join structure
         Assert.Contains("AppEvents", capturedQuery);
         Assert.Contains("TRANSFER_INITIATED", capturedQuery);
         Assert.Contains("TRANSFER_COMPLETED", capturedQuery);
         Assert.DoesNotContain("TRANSFER_FAILED", capturedQuery);
         Assert.Contains("join kind=leftouter", capturedQuery);
+
+        // Completion-aware status logic
+        Assert.Contains("isnotempty(TransferCompleted)", capturedQuery);
+        Assert.Contains("'Success'", capturedQuery);
+        Assert.Contains("'Partial'", capturedQuery);
+
+        // TotalDataSize projection
         Assert.Contains("TotalDataSize", capturedQuery);
+
+        // Final projected column list
+        Assert.Contains("TransferId", capturedQuery);
+        Assert.Contains("TransferCreated", capturedQuery);
+        Assert.Contains("TransferCompleted", capturedQuery);
+        Assert.Contains("Status", capturedQuery);
+        Assert.Contains("TransferDirection", capturedQuery);
+        Assert.Contains("UserName", capturedQuery);
+        Assert.Contains("CaseId", capturedQuery);
+        Assert.Contains("TransferredFiles", capturedQuery);
+        Assert.Contains("ErrorFiles", capturedQuery);
+
+        // Ordering
+        Assert.Contains("order by TransferCreated desc", capturedQuery);
     }
 
     [Fact]
