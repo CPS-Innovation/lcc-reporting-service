@@ -133,15 +133,14 @@ public class ReportingServiceTests
             {
                 TransferId = transferId,
                 CaseId = "C456",
-                Username = "testuser",
-                TransferDirection = "Upload",
-                InitiatedTime = DateTimeOffset.Parse("2024-01-01T10:00:00Z"),
-                CompletedTime = DateTimeOffset.Parse("2024-01-01T10:05:00Z"),
-                DurationFormatted = "00:05:00",
-                TotalFiles = 10,
+                UserName = "testuser",
+                TransferDirection = "Egress -> NetApp",
+                TransferCreated = DateTimeOffset.Parse("2024-01-01T10:00:00Z"),
+                TransferCompleted = DateTimeOffset.Parse("2024-01-01T10:05:00Z"),
                 TransferredFiles = 9,
                 ErrorFiles = 1,
-                TransferSpeedMbps = 50.5
+                TotalDataSize = "252.5 MB",
+                Status = "Partial"
             }
         };
 
@@ -161,7 +160,8 @@ public class ReportingServiceTests
 
         // Assert
         Assert.NotNull(capturedContent);
-        Assert.Contains("TransferId, CaseId, Username", capturedContent);
+        Assert.Contains("TransferId, TransferCreated, TransferCompleted, Status", capturedContent);
+        Assert.Contains("TotalDataSize", capturedContent);
         Assert.Contains(transferId.ToString(), capturedContent);
         Assert.Contains("C456", capturedContent);
         Assert.Contains("testuser", capturedContent);
@@ -274,8 +274,8 @@ public class ReportingServiceTests
             ContainerName);
 
         var transferId = Guid.NewGuid();
-        var initiatedTime = DateTimeOffset.Parse("2024-01-15T14:30:00Z");
-        var completedTime = DateTimeOffset.Parse("2024-01-15T14:35:00Z");
+        var transferCreated = DateTimeOffset.Parse("2024-01-15T14:30:00Z");
+        var transferCompleted = DateTimeOffset.Parse("2024-01-15T14:35:00Z");
 
         var transfers = new List<QueryResultTransfer>
         {
@@ -283,15 +283,14 @@ public class ReportingServiceTests
             {
                 TransferId = transferId,
                 CaseId = "C888",
-                Username = "john.doe",
-                TransferDirection = "Download",
-                InitiatedTime = initiatedTime,
-                CompletedTime = completedTime,
-                DurationFormatted = "00:05:00",
-                TotalFiles = 25,
+                UserName = "john.doe",
+                TransferDirection = "NetApp -> Egress",
+                TransferCreated = transferCreated,
+                TransferCompleted = transferCompleted,
                 TransferredFiles = 24,
                 ErrorFiles = 1,
-                TransferSpeedMbps = 125.75
+                TotalDataSize = "6.14 GB",
+                Status = "Partial"
             }
         };
 
@@ -314,12 +313,153 @@ public class ReportingServiceTests
         Assert.Contains(transferId.ToString(), capturedContent);
         Assert.Contains("C888", capturedContent);
         Assert.Contains("john.doe", capturedContent);
-        Assert.Contains("Download", capturedContent);
-        Assert.Contains("00:05:00", capturedContent);
-        Assert.Contains("25", capturedContent);
+        Assert.Contains("NetApp -> Egress", capturedContent);
         Assert.Contains("24", capturedContent);
         Assert.Contains("1", capturedContent);
-        Assert.Contains("125.75", capturedContent);
+        Assert.Contains("6.14 GB", capturedContent);
+        Assert.Contains("Partial", capturedContent);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WhenAllFilesTransferred_ShouldOutputSuccessStatus()
+    {
+        // Arrange
+        var reportingService = new ReportingService(
+            _loggerMock.Object,
+            _telemetryServiceMock.Object,
+            _blobStorageServiceMock.Object,
+            ContainerName);
+
+        var transfers = new List<QueryResultTransfer>
+        {
+            new QueryResultTransfer
+            {
+                TransferId = Guid.NewGuid(),
+                TransferredFiles = 10,
+                ErrorFiles = 0,
+                Status = "Success"
+            }
+        };
+
+        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
+
+        string? capturedContent = null;
+        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((c, f, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await reportingService.ProcessReportAsync();
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("Success", capturedContent);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WhenNoFilesTransferred_ShouldOutputFailedStatus()
+    {
+        // Arrange
+        var reportingService = new ReportingService(
+            _loggerMock.Object,
+            _telemetryServiceMock.Object,
+            _blobStorageServiceMock.Object,
+            ContainerName);
+
+        var transfers = new List<QueryResultTransfer>
+        {
+            new QueryResultTransfer
+            {
+                TransferId = Guid.NewGuid(),
+                TransferredFiles = 0,
+                ErrorFiles = 10,
+                Status = "Failed"
+            }
+        };
+
+        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
+
+        string? capturedContent = null;
+        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((c, f, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await reportingService.ProcessReportAsync();
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("Failed", capturedContent);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WhenSomeFilesTransferredAndSomeFailed_ShouldOutputPartialStatus()
+    {
+        // Arrange
+        var reportingService = new ReportingService(
+            _loggerMock.Object,
+            _telemetryServiceMock.Object,
+            _blobStorageServiceMock.Object,
+            ContainerName);
+
+        var transfers = new List<QueryResultTransfer>
+        {
+            new QueryResultTransfer
+            {
+                TransferId = Guid.NewGuid(),
+                TransferredFiles = 7,
+                ErrorFiles = 3,
+                Status = "Partial"
+            }
+        };
+
+        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
+
+        string? capturedContent = null;
+        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((c, f, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await reportingService.ProcessReportAsync();
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("Partial", capturedContent);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_ShouldIncludeTransferStatusInHeader()
+    {
+        // Arrange
+        var reportingService = new ReportingService(
+            _loggerMock.Object,
+            _telemetryServiceMock.Object,
+            _blobStorageServiceMock.Object,
+            ContainerName);
+
+        var transfers = new List<QueryResultTransfer>
+        {
+            new QueryResultTransfer { TransferId = Guid.NewGuid() }
+        };
+
+        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
+
+        string? capturedContent = null;
+        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((c, f, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await reportingService.ProcessReportAsync();
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("Status", capturedContent);
     }
 
     [Fact]
