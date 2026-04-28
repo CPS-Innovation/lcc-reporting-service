@@ -31,15 +31,14 @@ public class TelemetryServiceTests
             {
                 TransferId = Guid.NewGuid(),
                 CaseId = "case-456",
-                Username = "testuser",
-                TransferDirection = "UPLOAD",
-                InitiatedTime = DateTime.UtcNow.AddHours(-1),
-                CompletedTime = DateTime.UtcNow,
-                TotalFiles = 10,
+                UserName = "testuser",
+                TransferDirection = "Egress -> NetApp",
+                TransferCreated = DateTime.UtcNow.AddHours(-1),
+                TransferCompleted = DateTime.UtcNow,
                 TransferredFiles = 10,
                 ErrorFiles = 0,
-                TotalMegaBytesTransferred = 1980.0,
-                TransferSpeedMbps = 5.5
+                TotalDataSize = "1.93 GB",
+                Status = "Success"
             }
         };
 
@@ -78,9 +77,9 @@ public class TelemetryServiceTests
         Assert.Contains("AppEvents", capturedQuery);
         Assert.Contains("TRANSFER_INITIATED", capturedQuery);
         Assert.Contains("TRANSFER_COMPLETED", capturedQuery);
-        Assert.Contains("TRANSFER_FAILED", capturedQuery);
-        Assert.Contains("join kind=inner", capturedQuery);
-        Assert.Contains("TotalMegaBytesTransferred", capturedQuery);
+        Assert.DoesNotContain("TRANSFER_FAILED", capturedQuery);
+        Assert.Contains("join kind=leftouter", capturedQuery);
+        Assert.Contains("TotalDataSize", capturedQuery);
     }
 
     [Fact]
