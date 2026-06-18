@@ -38,29 +38,27 @@ public class QueryProcessorTests
             {
                 TransferId = Guid.NewGuid(),
                 CaseId = "CASE-001",
-                Username = "user1@test.com",
-                TransferDirection = "Upload",
-                InitiatedTime = DateTimeOffset.UtcNow.AddHours(-2),
-                CompletedTime = DateTimeOffset.UtcNow,
-                DurationFormatted = "02:00:00",
-                TotalFiles = 10,
+                UserName = "user1@test.com",
+                TransferDirection = "Egress -> NetApp",
+                TransferCreated = DateTimeOffset.UtcNow.AddHours(-2),
+                TransferCompleted = DateTimeOffset.UtcNow,
                 TransferredFiles = 10,
                 ErrorFiles = 0,
-                TransferSpeedMbps = 25.5
+                TotalDataSize = "183.6 MB",
+                Status = "Success"
             },
             new()
             {
                 TransferId = Guid.NewGuid(),
                 CaseId = "CASE-002",
-                Username = "user2@test.com",
-                TransferDirection = "Download",
-                InitiatedTime = DateTimeOffset.UtcNow.AddHours(-1),
-                CompletedTime = DateTimeOffset.UtcNow,
-                DurationFormatted = "01:00:00",
-                TotalFiles = 5,
+                UserName = "user2@test.com",
+                TransferDirection = "NetApp -> Egress",
+                TransferCreated = DateTimeOffset.UtcNow.AddHours(-1),
+                TransferCompleted = DateTimeOffset.UtcNow,
                 TransferredFiles = 4,
                 ErrorFiles = 1,
-                TransferSpeedMbps = 15.2
+                TotalDataSize = "15.2 MB",
+                Status = "Partial"
             }
         };
 
