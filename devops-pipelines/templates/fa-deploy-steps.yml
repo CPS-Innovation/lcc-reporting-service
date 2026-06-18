@@ -2,7 +2,6 @@ parameters:
   environment: ''
   functionAppName: ''
   buildArtifact: ''
-  keyVaultName: $(keyVaultName)
   azureSubscription: ''
   resourceGroupName: $(resourceGroupName)
   deployToSlot: false
@@ -15,7 +14,6 @@ steps:
       functionAppName: ${{ parameters.functionAppName }}
       azureSubscription: ${{ parameters.azureSubscription }}
       resourceGroupName: ${{ parameters.resourceGroupName }}
-      keyVaultName: ${{ parameters.keyVaultName }}
       slotName: ${{ parameters.slotName }}
 
   - task: AzureFunctionApp@2
