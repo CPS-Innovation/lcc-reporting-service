@@ -1,0 +1,5 @@
+variables:
+- name: TimerTriggerLccSchedule
+  value: "0 0 0 * * *"
+- name: TimeRangeInDays
+  value: "1.0"

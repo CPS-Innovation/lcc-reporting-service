@@ -7,8 +7,6 @@ parameters:
     type: string
   - name: resourceGroupName
     type: string
-  - name: keyVaultName
-    type: string
   - name: slotName
     type: string
 
@@ -23,11 +21,6 @@ steps:
       slotName: ${{ parameters.slotName }}
       appSettings: |
         [
-          {
-            "name": "KeyVaultUri",
-            "value": "https://${{ parameters.keyVaultName }}.vault.azure.net/",
-            "slotSetting": false
-          },
           { 
             "name": "TimerTriggerLccSchedule",
             "value": "$(TimerTriggerLccSchedule)",
