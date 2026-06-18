@@ -57,9 +57,9 @@ stages:
     dependsOn: ${{ parameters.dependsOn }}
   variables:
   - template: ./variables/backend-deploy-vars.yml
-  - template: ./variables/fa-config-${{ parameters.environment }}.yml
     parameters: 
       environment: ${{ parameters.environment }}
+  - template: ./variables/fa-config-${{ parameters.environment }}.yml
   pool: ${{ parameters.agentPool }}
   jobs:
     - deployment: Deploy_Backend
