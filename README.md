@@ -60,6 +60,29 @@ Values that may differ by environment (e.g., feature flags) should also be added
   ```yaml
   # File: fa-config-dev.yml
   variables:
-  - name: TimeRangeInDays
+  - name: TransferMaterialTimeRangeDays
     value: "1.0"
   ```
+
+## Reports Configuration
+
+Each report is implemented as an `IReportProvider` in [CPS.ComplexCases.ReportingService.Services/Providers](src/backend/CPS.ComplexCases.ReportingService.Services/Providers) and configured under the `Reports` section, keyed by the provider's `ReportKey`:
+
+```json
+"Reports": {
+  "TransferMaterial": {
+    "Enabled": true,
+    "CronSchedule": "0 0 0 * * *",
+    "WorkspaceId": "<lcc-workspace-id>",
+    "TimeRangeDays": 1.0,
+    "StorageContainer": "lcc-reports-dev",
+    "StoragePath": "case-materials/transfers"
+  }
+}
+```
+
+Locally these are set as `Reports:TransferMaterial:<Setting>` keys in `local.settings.json`. In the deployment pipeline they must use the double-underscore form, `Reports__TransferMaterial__<Setting>`, because App Service settings are surfaced to the worker as environment variables.
+
+`CronSchedule` is the single source of truth for a report's schedule: the report's `TimerTrigger` resolves the same configuration value, so there is no separate schedule app setting to keep in step. Changing it in the App Service configuration restarts the host and takes effect without a redeploy.
+
+Adding a report means registering a new provider and adding a matching `Reports` entry - no changes to `BlobStorageService`, `ReportingService` or existing providers are required.

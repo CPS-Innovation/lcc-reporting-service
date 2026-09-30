@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CPS.ComplexCases.ReportingService.Services;
+using CPS.ComplexCases.ReportingService.Services.Providers;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 
@@ -11,14 +12,15 @@ public class ReportingTimerTriggerLcc(ILogger<ReportingTimerTriggerLcc> logger, 
     private readonly IReportingService _reportingService = reportingService;
 
     [Function("ReportingTimerTriggerLcc")]
-    public async Task GenerateLccReportsAsync([TimerTrigger("%TimerTriggerLccSchedule%")] TimerInfo myTimer)
+    public async Task GenerateLccReportsAsync(
+        [TimerTrigger(TransferMaterialReportProvider.CronScheduleSetting)] TimerInfo myTimer)
     {
         var stopwatch = Stopwatch.StartNew();
         _logger.LogInformation("LCC Report generation function executed at: {executionTime}", DateTime.UtcNow);
 
         try
         {
-            await _reportingService.ProcessReportAsync();
+            await _reportingService.ProcessReportAsync(TransferMaterialReportProvider.ReportKeyName);
             _logger.LogInformation("LCC Reports generated successfully in {duration} ms.", stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)

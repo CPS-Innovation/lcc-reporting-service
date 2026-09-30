@@ -1,7 +1,9 @@
+using System.Reflection;
 using Moq;
 using CPS.ComplexCases.ReportingService.API.Functions;
 using Microsoft.Extensions.Logging;
 using CPS.ComplexCases.ReportingService.Services;
+using CPS.ComplexCases.ReportingService.Services.Providers;
 using Microsoft.Azure.Functions.Worker;
 
 namespace CPS.ComplexCases.ReportingService.API.Tests.Functions;
@@ -20,11 +22,28 @@ public class ReportingTimerTriggerLccTests
     }
 
     [Fact]
+    public void GenerateLccReportsAsync_BindsScheduleToReportConfiguration()
+    {
+        // Arrange
+        var timerParameter = typeof(ReportingTimerTriggerLcc)
+            .GetMethod(nameof(ReportingTimerTriggerLcc.GenerateLccReportsAsync))!
+            .GetParameters()
+            .Single();
+
+        // Act
+        var trigger = timerParameter.GetCustomAttribute<TimerTriggerAttribute>();
+
+        // Assert
+        Assert.NotNull(trigger);
+        Assert.Equal("%Reports:TransferMaterial:CronSchedule%", trigger.Schedule);
+    }
+
+    [Fact]
     public async Task GenerateLccReportsAsync_Success()
     {
         // Arrange
         _reportingServiceMock
-            .Setup(service => service.ProcessReportAsync())
+            .Setup(service => service.ProcessReportAsync(It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         var timerInfo = new TimerInfo
@@ -59,7 +78,9 @@ public class ReportingTimerTriggerLccTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
-        _reportingServiceMock.Verify(r => r.ProcessReportAsync(), Times.Once);
+        _reportingServiceMock.Verify(
+            r => r.ProcessReportAsync(TransferMaterialReportProvider.ReportKeyName),
+            Times.Once);
     }
 
     [Fact]
@@ -69,7 +90,7 @@ public class ReportingTimerTriggerLccTests
         string exceptionMessage = "Simulated exception during LCC report generation";
 
         _reportingServiceMock
-            .Setup(service => service.ProcessReportAsync())
+            .Setup(service => service.ProcessReportAsync(It.IsAny<string>()))
             .ThrowsAsync(new Exception(exceptionMessage));
 
         var timerInfo = new TimerInfo
@@ -112,6 +133,8 @@ public class ReportingTimerTriggerLccTests
             Times.Once);
 
         // Assert - service call
-        _reportingServiceMock.Verify(r => r.ProcessReportAsync(), Times.Once);
+        _reportingServiceMock.Verify(
+            r => r.ProcessReportAsync(TransferMaterialReportProvider.ReportKeyName),
+            Times.Once);
     }
 }

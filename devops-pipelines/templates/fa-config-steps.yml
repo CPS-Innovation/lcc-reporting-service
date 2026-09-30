@@ -22,28 +22,38 @@ steps:
       appSettings: |
         [
           { 
-            "name": "TimerTriggerLccSchedule",
-            "value": "$(TimerTriggerLccSchedule)",
+            "name": "Reports__TransferMaterial__Enabled",
+            "value": "$(TransferMaterialEnabled)",
             "slotSetting": false
           },
           { 
-            "name": "TimeRangeInDays",
-            "value": "$(TimeRangeInDays)",
+            "name": "Reports__TransferMaterial__CronSchedule",
+            "value": "$(TransferMaterialCronSchedule)",
             "slotSetting": false
           },
           { 
-            "name": "BlobContainerNameReporting",
+            "name": "Reports__TransferMaterial__WorkspaceId",
+            "value": "$(ApplicationInsightsWorkspaceId)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__TransferMaterial__TimeRangeDays",
+            "value": "$(TransferMaterialTimeRangeDays)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__TransferMaterial__StorageContainer",
             "value": "lcc-reports-${{ parameters.environment }}",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__TransferMaterial__StoragePath",
+            "value": "$(TransferMaterialStoragePath)",
             "slotSetting": false
           },
           { 
             "name": "BlobStorageAccountUrl",
             "value": "$(BlobStorageAccountUrl)",
-            "slotSetting": false
-          },
-          { 
-            "name": "APPLICATIONINSIGHTS_WORKSPACEID",
-            "value": "$(ApplicationInsightsWorkspaceId)",
             "slotSetting": false
           },
           {

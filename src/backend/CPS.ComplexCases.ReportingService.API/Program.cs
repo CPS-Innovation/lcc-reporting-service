@@ -1,7 +1,9 @@
 using Azure.Identity;
 using Azure.Monitor.Query;
 using Azure.Storage.Blobs;
+using CPS.ComplexCases.ReportingService.Domain.Configuration;
 using CPS.ComplexCases.ReportingService.Services;
+using CPS.ComplexCases.ReportingService.Services.Providers;
 using Microsoft.ApplicationInsights.WorkerService;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
@@ -49,44 +51,14 @@ var host = new HostBuilder()
         });
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
-
-        string? workspaceId = context.Configuration["APPLICATIONINSIGHTS_WORKSPACEID"];
-        if (string.IsNullOrEmpty(workspaceId))
-        {
-            throw new InvalidOperationException("APPLICATIONINSIGHTS_WORKSPACEID is missing in configuration or environment variable.");
-        }
-
         services.AddSingleton<LogsQueryClient>(new LogsQueryClient(new DefaultAzureCredential()));
 
-        services.AddSingleton<IQueryProcessor>(provider =>
-        {
-            var timeRangeEnv = context.Configuration["TimeRangeInDays"];
-            if (string.IsNullOrEmpty(timeRangeEnv) || !double.TryParse(timeRangeEnv, out var days) || days <= 0)
-            {
-                throw new InvalidOperationException("TimeRangeInDays is not configured or invalid.");
-            }
-            return new QueryProcessor(
-                provider.GetRequiredService<ILogger<QueryProcessor>>(),
-                provider.GetRequiredService<LogsQueryClient>(),
-                workspaceId, days);
-        });
+        // Each report's settings are bound from the root so that ReportsOptions.Reports maps to the
+        // "Reports" configuration section. New reports are added by registering a provider below.
+        services.Configure<ReportsOptions>(context.Configuration);
 
-        services.AddSingleton<IReportingService>(provider =>
-        {
-            var containerName = context.Configuration["BlobContainerNameReporting"];
-            if (string.IsNullOrEmpty(containerName))
-            {
-                throw new InvalidOperationException("BlobContainerNameReporting is missing in configuration.");
-            }
-
-            return new ReportingService(
-                provider.GetRequiredService<ILogger<ReportingService>>(),
-                provider.GetRequiredService<ITelemetryService>(),
-                provider.GetRequiredService<IBlobStorageService>(),
-                containerName);
-        });
-
-        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddSingleton<IReportProvider, TransferMaterialReportProvider>();
+        services.AddSingleton<IReportingService, ReportingService>();
     })
     .Build();
 
