@@ -3,11 +3,13 @@
     "Values": {
         "AzureWebJobsStorage": "UseDevelopmentStorage=true",
         "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-        "TimerTriggerLccSchedule": "0 0 0 * * *",
-        "BlobContainerNameReporting": "lcc-reports-dev",
         "BlobStorageAccountUrl": "<blob-storage-account-url>",
-        "TimeRangeInDays": "1.0",
-        "APPLICATIONINSIGHTS_WORKSPACEID": "<workspace-id>",
+        "Reports:TransferMaterial:Enabled": "true",
+        "Reports:TransferMaterial:CronSchedule": "0 0 0 * * *",
+        "Reports:TransferMaterial:WorkspaceId": "<lcc-workspace-id>",
+        "Reports:TransferMaterial:TimeRangeDays": "1.0",
+        "Reports:TransferMaterial:StorageContainer": "lcc-reports-dev",
+        "Reports:TransferMaterial:StoragePath": "transfer-material",
         "AZURE_TENANT_ID": "<azure-tenant-id>",
         "AZURE_CLIENT_ID": "<azure-client-id>",
         "AZURE_CLIENT_SECRET": "<azure-client-secret>"

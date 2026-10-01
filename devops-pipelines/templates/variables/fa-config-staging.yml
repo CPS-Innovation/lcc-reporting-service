@@ -1,5 +1,9 @@
 variables:
-- name: TimerTriggerLccSchedule
+- name: TransferMaterialEnabled
+  value: "true"
+- name: TransferMaterialCronSchedule
   value: "0 0 0 * * *"
-- name: TimeRangeInDays
+- name: TransferMaterialTimeRangeDays
   value: "1.0"
+- name: TransferMaterialStoragePath
+  value: "transfer-material"

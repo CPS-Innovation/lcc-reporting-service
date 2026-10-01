@@ -1,5 +1,8 @@
-using CPS.ComplexCases.ReportingService.Domain.Models;
+using Azure.Monitor.Query;
+using CPS.ComplexCases.ReportingService.Domain.Configuration;
+using CPS.ComplexCases.ReportingService.Services.Providers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace CPS.ComplexCases.ReportingService.Services.Tests;
@@ -7,228 +10,289 @@ namespace CPS.ComplexCases.ReportingService.Services.Tests;
 public class ReportingServiceTests
 {
     private readonly Mock<ILogger<ReportingService>> _loggerMock;
-    private readonly Mock<ITelemetryService> _telemetryServiceMock;
+    private readonly Mock<IReportProvider> _reportProviderMock;
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock;
+    private readonly LogsQueryClient _logsQueryClient;
+    private const string ReportKey = "TransferMaterial";
     private const string ContainerName = "test-container";
+    private const string StoragePath = "case-materials/transfers";
+    private const string FileName = "2024-01/LCC_Transfer_Report_2024-01-15.csv";
 
     public ReportingServiceTests()
     {
         _loggerMock = new Mock<ILogger<ReportingService>>();
-        _telemetryServiceMock = new Mock<ITelemetryService>();
         _blobStorageServiceMock = new Mock<IBlobStorageService>();
+        _logsQueryClient = new Mock<LogsQueryClient>().Object;
+
+        _reportProviderMock = new Mock<IReportProvider>();
+        _reportProviderMock.SetupGet(x => x.ReportKey).Returns(ReportKey);
+        _reportProviderMock.Setup(x => x.GenerateFileName()).Returns(FileName);
     }
 
-    [Fact]
-    public void Constructor_WithValidParameters_ShouldSucceed()
+    private static ReportConfig CreateConfig(
+        bool enabled = true,
+        string workspaceId = "test-workspace-id",
+        string storageContainer = ContainerName,
+        string storagePath = StoragePath,
+        double timeRangeDays = 1.0) => new()
+        {
+            Enabled = enabled,
+            WorkspaceId = workspaceId,
+            StorageContainer = storageContainer,
+            StoragePath = storagePath,
+            TimeRangeDays = timeRangeDays
+        };
+
+    private ReportingService CreateService(ReportConfig? config, string configKey = ReportKey)
     {
-        // Act
-        var service = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
+        var options = new ReportsOptions();
+        if (config is not null)
+        {
+            options.Reports[configKey] = config;
+        }
 
-        // Assert
-        Assert.NotNull(service);
+        return new ReportingService(
+            _loggerMock.Object,
+            [_reportProviderMock.Object],
+            _blobStorageServiceMock.Object,
+            _logsQueryClient,
+            Options.Create(options));
     }
+
+    private void SetupProviderContent(string content) =>
+        _reportProviderMock
+            .Setup(x => x.GenerateCsvContentAsync(It.IsAny<LogsQueryClient>(), It.IsAny<string>(), It.IsAny<double>()))
+            .ReturnsAsync(content);
 
     [Fact]
     public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
     {
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             new ReportingService(
                 null!,
-                _telemetryServiceMock.Object,
+                [_reportProviderMock.Object],
                 _blobStorageServiceMock.Object,
-                ContainerName));
-    }
-
-    [Fact]
-    public void Constructor_WithNullTelemetryService_ShouldThrowArgumentNullException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() =>
-            new ReportingService(
-                _loggerMock.Object,
-                null!,
-                _blobStorageServiceMock.Object,
-                ContainerName));
+                _logsQueryClient,
+                Options.Create(new ReportsOptions())));
     }
 
     [Fact]
     public void Constructor_WithNullBlobStorageService_ShouldThrowArgumentNullException()
     {
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             new ReportingService(
                 _loggerMock.Object,
-                _telemetryServiceMock.Object,
+                [_reportProviderMock.Object],
                 null!,
-                ContainerName));
+                _logsQueryClient,
+                Options.Create(new ReportsOptions())));
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Constructor_WithInvalidContainerName_ShouldThrowArgumentException(string? invalidContainerName)
+    public async Task ProcessReportAsync_WithInvalidReportKey_ShouldThrowArgumentException(string? reportKey)
     {
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() =>
-            new ReportingService(
-                _loggerMock.Object,
-                _telemetryServiceMock.Object,
-                _blobStorageServiceMock.Object,
-                invalidContainerName!));
+        // Arrange
+        var reportingService = CreateService(CreateConfig());
 
-        Assert.Contains("containerName", exception.Message);
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => reportingService.ProcessReportAsync(reportKey!));
+
+        Assert.Equal("reportKey", exception.ParamName);
     }
 
     [Fact]
-    public async Task ProcessReportAsync_ShouldReturnEarlyWhenNoTransfersFound()
+    public async Task ProcessReportAsync_WithUnknownReportKey_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
+        var reportingService = CreateService(CreateConfig(), configKey: "RegisterACase");
 
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(new List<QueryResultTransfer>());
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reportingService.ProcessReportAsync("RegisterACase"));
+
+        Assert.Contains("RegisterACase", exception.Message);
+
+        _blobStorageServiceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WithNoConfigurationForReport_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var reportingService = CreateService(config: null);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reportingService.ProcessReportAsync(ReportKey));
+
+        Assert.Contains($"Reports:{ReportKey}", exception.Message);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WithConfigurationKeyInDifferentCase_ShouldStillResolveConfig()
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(), configKey: "transfermaterial");
+        SetupProviderContent("header\r\nrow");
 
         // Act
-        await reportingService.ProcessReportAsync();
+        await reportingService.ProcessReportAsync(ReportKey);
+
+        // Assert
+        _blobStorageServiceMock.Verify(
+            x => x.UploadBlobContentAsync(ContainerName, It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WhenReportDisabled_ShouldSkipProviderAndUpload()
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(enabled: false));
+
+        // Act
+        await reportingService.ProcessReportAsync(ReportKey);
 
         // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No transfer data found")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("is disabled")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
+
+        _reportProviderMock.Verify(
+            x => x.GenerateCsvContentAsync(It.IsAny<LogsQueryClient>(), It.IsAny<string>(), It.IsAny<double>()),
+            Times.Never);
 
         _blobStorageServiceMock.Verify(
             x => x.UploadBlobContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
             Times.Never);
     }
 
-    [Fact]
-    public async Task ProcessReportAsync_ShouldUploadFileWithHeaderAndData()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessReportAsync_WithMissingWorkspaceId_ShouldThrowInvalidOperationException(string workspaceId)
     {
         // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
+        var reportingService = CreateService(CreateConfig(workspaceId: workspaceId));
 
-        var transferId = Guid.NewGuid();
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer
-            {
-                TransferId = transferId,
-                CaseId = "C456",
-                UserName = "testuser",
-                TransferDirection = "Egress -> NetApp",
-                TransferCreated = DateTimeOffset.Parse("2024-01-01T10:00:00Z"),
-                TransferCompleted = DateTimeOffset.Parse("2024-01-01T10:05:00Z"),
-                TransferredFiles = 9,
-                ErrorFiles = 1,
-                TotalDataSize = "252.5 MB",
-                Status = "Partial"
-            }
-        };
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reportingService.ProcessReportAsync(ReportKey));
 
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(transfers);
+        Assert.Contains("WorkspaceId", exception.Message);
+    }
 
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessReportAsync_WithMissingStorageContainer_ShouldThrowInvalidOperationException(string storageContainer)
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(storageContainer: storageContainer));
 
-        // Act
-        await reportingService.ProcessReportAsync();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reportingService.ProcessReportAsync(ReportKey));
 
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("TransferId, TransferCreated, TransferCompleted, Status", capturedContent);
-        Assert.Contains("TotalDataSize", capturedContent);
-        Assert.Contains(transferId.ToString(), capturedContent);
-        Assert.Contains("C456", capturedContent);
-        Assert.Contains("testuser", capturedContent);
+        Assert.Contains("StorageContainer", exception.Message);
     }
 
     [Fact]
-    public async Task ProcessReportAsync_ShouldGenerateCorrectFileName()
+    public async Task ProcessReportAsync_ShouldPassConfiguredWorkspaceAndTimeRangeToProvider()
     {
         // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer { TransferId = Guid.NewGuid() }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(transfers);
-
-        string? capturedFileName = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Callback<string, string, string>((c, fileName, content) => capturedFileName = fileName)
-            .Returns(Task.CompletedTask);
+        var reportingService = CreateService(CreateConfig(workspaceId: "lcc-workspace", timeRangeDays: 7.5));
+        SetupProviderContent("header\r\nrow");
 
         // Act
-        await reportingService.ProcessReportAsync();
+        await reportingService.ProcessReportAsync(ReportKey);
 
         // Assert
-        Assert.NotNull(capturedFileName);
-        Assert.Matches(@"\d{4}-\d{2}/LCC_Transfer_Report_\d{4}-\d{2}-\d{2}\.csv", capturedFileName);
+        _reportProviderMock.Verify(
+            x => x.GenerateCsvContentAsync(_logsQueryClient, "lcc-workspace", 7.5),
+            Times.Once);
     }
 
     [Fact]
-    public async Task ProcessReportAsync_ShouldUploadToCorrectContainer()
+    public async Task ProcessReportAsync_WhenProviderReturnsNoContent_ShouldNotUpload()
     {
         // Arrange
-        var customContainerName = "production-reports";
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            customContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer { TransferId = Guid.NewGuid() }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(transfers);
+        var reportingService = CreateService(CreateConfig());
+        SetupProviderContent(string.Empty);
 
         // Act
-        await reportingService.ProcessReportAsync();
+        await reportingService.ProcessReportAsync(ReportKey);
+
+        // Assert
+        _blobStorageServiceMock.Verify(
+            x => x.UploadBlobContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_ShouldUploadContentToConfiguredContainerAndPath()
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig());
+        var content = "header\r\nrow";
+        SetupProviderContent(content);
+
+        // Act
+        await reportingService.ProcessReportAsync(ReportKey);
 
         // Assert
         _blobStorageServiceMock.Verify(
             x => x.UploadBlobContentAsync(
-                customContainerName,
-                It.IsAny<string>(),
+                ContainerName,
+                $"{StoragePath}/{FileName}",
+                content),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData("case-materials/transfers/")]
+    [InlineData("/case-materials/transfers")]
+    [InlineData(" case-materials/transfers ")]
+    public async Task ProcessReportAsync_ShouldNormaliseStoragePathSeparators(string storagePath)
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(storagePath: storagePath));
+        SetupProviderContent("header\r\nrow");
+
+        // Act
+        await reportingService.ProcessReportAsync(ReportKey);
+
+        // Assert
+        _blobStorageServiceMock.Verify(
+            x => x.UploadBlobContentAsync(
+                ContainerName,
+                $"case-materials/transfers/{FileName}",
                 It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_WithEmptyStoragePath_ShouldUploadToContainerRoot()
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(storagePath: string.Empty));
+        SetupProviderContent("header\r\nrow");
+
+        // Act
+        await reportingService.ProcessReportAsync(ReportKey);
+
+        // Assert
+        _blobStorageServiceMock.Verify(
+            x => x.UploadBlobContentAsync(ContainerName, FileName, It.IsAny<string>()),
             Times.Once);
     }
 
@@ -236,20 +300,16 @@ public class ReportingServiceTests
     public async Task ProcessReportAsync_ShouldLogErrorAndRethrowOnException()
     {
         // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
+        var reportingService = CreateService(CreateConfig());
         var expectedException = new Exception("Test exception");
 
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
+        _reportProviderMock
+            .Setup(x => x.GenerateCsvContentAsync(It.IsAny<LogsQueryClient>(), It.IsAny<string>(), It.IsAny<double>()))
             .ThrowsAsync(expectedException);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<Exception>(
-            async () => await reportingService.ProcessReportAsync());
+            () => reportingService.ProcessReportAsync(ReportKey));
 
         Assert.Equal(expectedException, exception);
 
@@ -261,269 +321,5 @@ public class ReportingServiceTests
                 expectedException,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_ShouldIncludeAllFieldsInOutput()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transferId = Guid.NewGuid();
-        var transferCreated = DateTimeOffset.Parse("2024-01-15T14:30:00Z");
-        var transferCompleted = DateTimeOffset.Parse("2024-01-15T14:35:00Z");
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer
-            {
-                TransferId = transferId,
-                CaseId = "C888",
-                UserName = "john.doe",
-                TransferDirection = "NetApp -> Egress",
-                TransferCreated = transferCreated,
-                TransferCompleted = transferCompleted,
-                TransferredFiles = 24,
-                ErrorFiles = 1,
-                TotalDataSize = "6.14 GB",
-                Status = "Partial"
-            }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains(transferId.ToString(), capturedContent);
-        Assert.Contains("C888", capturedContent);
-        Assert.Contains("john.doe", capturedContent);
-        Assert.Contains("NetApp -> Egress", capturedContent);
-        Assert.Contains("24", capturedContent);
-        Assert.Contains("1", capturedContent);
-        Assert.Contains("6.14 GB", capturedContent);
-        Assert.Contains("Partial", capturedContent);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_WhenAllFilesTransferred_ShouldOutputSuccessStatus()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer
-            {
-                TransferId = Guid.NewGuid(),
-                TransferredFiles = 10,
-                ErrorFiles = 0,
-                Status = "Success"
-            }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("Success", capturedContent);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_WhenNoFilesTransferred_ShouldOutputFailedStatus()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer
-            {
-                TransferId = Guid.NewGuid(),
-                TransferredFiles = 0,
-                ErrorFiles = 10,
-                Status = "Failed"
-            }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("Failed", capturedContent);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_WhenSomeFilesTransferredAndSomeFailed_ShouldOutputPartialStatus()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer
-            {
-                TransferId = Guid.NewGuid(),
-                TransferredFiles = 7,
-                ErrorFiles = 3,
-                Status = "Partial"
-            }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("Partial", capturedContent);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_ShouldIncludeTransferStatusInHeader()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer { TransferId = Guid.NewGuid() }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync()).ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("Status", capturedContent);
-    }
-
-    [Fact]
-    public async Task ProcessReportAsync_ShouldProcessMultipleTransfers()
-    {
-        // Arrange
-        var reportingService = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            ContainerName);
-
-        var transfers = new List<QueryResultTransfer>
-        {
-            new QueryResultTransfer { TransferId = Guid.NewGuid(), CaseId = "C001" },
-            new QueryResultTransfer { TransferId = Guid.NewGuid(), CaseId = "C002" },
-            new QueryResultTransfer { TransferId = Guid.NewGuid(), CaseId = "C003" }
-        };
-
-        _telemetryServiceMock.Setup(x => x.QueryTransfersAsync())
-            .ReturnsAsync(transfers);
-
-        string? capturedContent = null;
-        _blobStorageServiceMock.Setup(x => x.UploadBlobContentAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Callback<string, string, string>((c, f, content) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await reportingService.ProcessReportAsync();
-
-        // Assert
-        Assert.NotNull(capturedContent);
-        Assert.Contains("C001", capturedContent);
-        Assert.Contains("C002", capturedContent);
-        Assert.Contains("C003", capturedContent);
-
-        // Verify each transfer was logged
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Information,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Processing transfer")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Exactly(3));
-    }
-
-    [Theory]
-    [InlineData("dev-reports")]
-    [InlineData("test-reports")]
-    [InlineData("production-reports")]
-    public void Constructor_WithDifferentContainerNames_ShouldAcceptValidValues(string containerName)
-    {
-        // Act
-        var service = new ReportingService(
-            _loggerMock.Object,
-            _telemetryServiceMock.Object,
-            _blobStorageServiceMock.Object,
-            containerName);
-
-        // Assert
-        Assert.NotNull(service);
     }
 }

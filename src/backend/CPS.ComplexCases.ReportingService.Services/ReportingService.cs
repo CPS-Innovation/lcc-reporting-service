@@ -1,52 +1,69 @@
-using System.Globalization;
-using System.Text;
-using CPS.ComplexCases.ReportingService.Domain.Models;
+using Azure.Monitor.Query;
+using CPS.ComplexCases.ReportingService.Domain.Configuration;
+using CPS.ComplexCases.ReportingService.Services.Providers;
+using Microsoft.Extensions.Options;
 
 namespace CPS.ComplexCases.ReportingService.Services;
 
 public class ReportingService : IReportingService
 {
     private readonly ILogger<ReportingService> _logger;
-    private readonly ITelemetryService _telemetryService;
+    private readonly IEnumerable<IReportProvider> _reportProviders;
     private readonly IBlobStorageService _blobStorageService;
-    private readonly string _containerName;
+    private readonly LogsQueryClient _logsQueryClient;
+    private readonly ReportsOptions _reportsOptions;
 
     public ReportingService(
         ILogger<ReportingService> logger,
-        ITelemetryService telemetryService,
+        IEnumerable<IReportProvider> reportProviders,
         IBlobStorageService blobStorageService,
-        string containerName)
+        LogsQueryClient logsQueryClient,
+        IOptions<ReportsOptions> reportsOptions)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
+        _reportProviders = reportProviders ?? throw new ArgumentNullException(nameof(reportProviders));
         _blobStorageService = blobStorageService ?? throw new ArgumentNullException(nameof(blobStorageService));
-
-        if (string.IsNullOrWhiteSpace(containerName))
-            throw new ArgumentException("Container name cannot be null or empty.", nameof(containerName));
-
-        _containerName = containerName;
+        _logsQueryClient = logsQueryClient ?? throw new ArgumentNullException(nameof(logsQueryClient));
+        _reportsOptions = reportsOptions?.Value ?? throw new ArgumentNullException(nameof(reportsOptions));
     }
 
-    public async Task ProcessReportAsync()
+    public async Task ProcessReportAsync(string reportKey)
     {
+        if (string.IsNullOrWhiteSpace(reportKey))
+            throw new ArgumentException("Report key cannot be null or empty.", nameof(reportKey));
+
         try
         {
-            var sb = new StringBuilder(CreateFileHeader());
-            var transfers = await _telemetryService.QueryTransfersAsync();
+            var provider = _reportProviders.FirstOrDefault(p =>
+                string.Equals(p.ReportKey, reportKey, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"No report provider is registered for report key '{reportKey}'.");
 
-            if (transfers == null || !transfers.Any())
+            var config = FindConfig(reportKey)
+                ?? throw new InvalidOperationException($"No configuration was found under Reports:{reportKey}.");
+
+            if (!config.Enabled)
             {
-                _logger.LogInformation("No transfer data found for the specified time range.");
+                _logger.LogInformation("Report {ReportKey} is disabled and will not be generated.", reportKey);
                 return;
             }
 
-            foreach (var transfer in transfers)
+            if (string.IsNullOrWhiteSpace(config.WorkspaceId))
+                throw new InvalidOperationException($"Reports:{reportKey}:WorkspaceId is missing or empty.");
+
+            if (string.IsNullOrWhiteSpace(config.StorageContainer))
+                throw new InvalidOperationException($"Reports:{reportKey}:StorageContainer is missing or empty.");
+
+            var content = await provider.GenerateCsvContentAsync(_logsQueryClient, config.WorkspaceId, config.TimeRangeDays);
+
+            if (string.IsNullOrEmpty(content))
             {
-                _logger.LogInformation("Processing transfer: {TransferId}", transfer.TransferId);
-                sb.AppendLine(AppendFileLine(transfer));
+                return;
             }
 
-            await _blobStorageService.UploadBlobContentAsync(_containerName, GenerateFileNameInFolder(), sb.ToString());
+            await _blobStorageService.UploadBlobContentAsync(
+                config.StorageContainer,
+                BuildBlobPath(config.StoragePath, provider.GenerateFileName()),
+                content);
         }
         catch (Exception ex)
         {
@@ -55,38 +72,22 @@ public class ReportingService : IReportingService
         }
     }
 
-    private static string GenerateFileNameInFolder()
+    private ReportConfig? FindConfig(string reportKey)
     {
-        DateTime now = DateTime.UtcNow;
-        // Specify a folder name using the year and month
-        string folderName = now.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        // Generate the file name with the current date under the specified folder
-        string fileName = $"{folderName}/LCC_Transfer_Report_{now:yyyy-MM-dd}.csv";
-        return fileName;
+        if (_reportsOptions.Reports.TryGetValue(reportKey, out var config))
+        {
+            return config;
+        }
+
+        return _reportsOptions.Reports
+            .FirstOrDefault(entry => string.Equals(entry.Key, reportKey, StringComparison.OrdinalIgnoreCase))
+            .Value;
     }
 
-    private static string CreateFileHeader()
+    private static string BuildBlobPath(string storagePath, string fileName)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("TransferId, TransferCreated, TransferCompleted, Status, TransferDirection, UserName, CaseId, TotalDataSize, TransferredFiles, ErrorFiles");
-        return sb.ToString();
-    }
+        var folder = storagePath?.Trim().Trim('/');
 
-    private static string AppendFileLine(QueryResultTransfer transfer)
-    {
-        return string.Format(
-            CultureInfo.InvariantCulture,
-            "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9}",
-            transfer.TransferId,
-            transfer.TransferCreated,
-            transfer.TransferCompleted,
-            transfer.Status,
-            transfer.TransferDirection,
-            transfer.UserName,
-            transfer.CaseId,
-            transfer.TotalDataSize,
-            transfer.TransferredFiles,
-            transfer.ErrorFiles
-        );
+        return string.IsNullOrEmpty(folder) ? fileName : $"{folder}/{fileName}";
     }
 }
