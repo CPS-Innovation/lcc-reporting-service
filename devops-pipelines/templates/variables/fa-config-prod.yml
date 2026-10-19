@@ -13,7 +13,5 @@ variables:
   value: "0 0 1 * * *"
 - name: RegisterCaseTimeRangeDays
   value: "1.0"
-- name: RegisterCaseStorageContainer
-  value: "reports"
 - name: RegisterCaseStoragePath
   value: "register-case/journeys"

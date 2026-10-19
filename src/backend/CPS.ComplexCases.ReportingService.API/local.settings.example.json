@@ -15,7 +15,7 @@
         "Reports__RegisterCase__WorkspaceId": "<rac-workspace-id>",
         "Reports__RegisterCase__TimeRangeDays": "1.0",
         "Reports__RegisterCase__StorageServiceUri": "https://<rac-storage-account>.blob.core.windows.net",
-        "Reports__RegisterCase__StorageContainer": "reports",
+        "Reports__RegisterCase__StorageContainer": "cmrc-reports-dev",
         "Reports__RegisterCase__StoragePath": "register-case/journeys",
         "AZURE_TENANT_ID": "<azure-tenant-id>",
         "AZURE_CLIENT_ID": "<azure-client-id>",

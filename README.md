@@ -41,7 +41,7 @@ Non-sensitive values that remain consistent across all environments can be added
   ```json
   {
     "name": "Reports__TransferMaterial__StorageServiceUri",
-    "value": "$(BlobStorageAccountUrl)",
+    "value": "$(TransferMaterialStorageServiceUri)",
     "slotSetting": false
   },
   ```
@@ -85,7 +85,7 @@ Each report is implemented as an `IReportProvider` in [CPS.ComplexCases.Reportin
     "WorkspaceId": "<rac-workspace-id>",
     "TimeRangeDays": 1.0,
     "StorageServiceUri": "https://<rac-storage-account>.blob.core.windows.net",
-    "StorageContainer": "reports",
+    "StorageContainer": "cmrc-reports-dev",
     "StoragePath": "register-case/journeys"
   }
 }

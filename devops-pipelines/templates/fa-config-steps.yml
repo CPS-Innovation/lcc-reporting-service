@@ -33,7 +33,7 @@ steps:
           },
           { 
             "name": "Reports__TransferMaterial__WorkspaceId",
-            "value": "$(ApplicationInsightsWorkspaceId)",
+            "value": "$(TransferMaterialWorkspaceId)",
             "slotSetting": false
           },
           { 
@@ -43,7 +43,7 @@ steps:
           },
           { 
             "name": "Reports__TransferMaterial__StorageServiceUri",
-            "value": "$(BlobStorageAccountUrl)",
+            "value": "$(TransferMaterialStorageServiceUri)",
             "slotSetting": false
           },
           { 
@@ -83,7 +83,7 @@ steps:
           },
           { 
             "name": "Reports__RegisterCase__StorageContainer",
-            "value": "$(RegisterCaseStorageContainer)",
+            "value": "cmrc-reports-${{ parameters.environment }}",
             "slotSetting": false
           },
           { 
