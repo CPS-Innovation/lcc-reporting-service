@@ -40,7 +40,7 @@ Non-sensitive values that remain consistent across all environments can be added
 - Values such as UUIDs, internally-facing urls, etc., that shouldn't be exposed in a public repository, should be added as variable references. For Example:
   ```json
   {
-    "name": "BlobStorageAccountUrl",
+    "name": "Reports__TransferMaterial__StorageServiceUri",
     "value": "$(BlobStorageAccountUrl)",
     "slotSetting": false
   },
@@ -75,13 +75,25 @@ Each report is implemented as an `IReportProvider` in [CPS.ComplexCases.Reportin
     "CronSchedule": "0 0 0 * * *",
     "WorkspaceId": "<lcc-workspace-id>",
     "TimeRangeDays": 1.0,
+    "StorageServiceUri": "https://<lcc-storage-account>.blob.core.windows.net",
     "StorageContainer": "lcc-reports-dev",
     "StoragePath": "case-materials/transfers"
+  },
+  "RegisterCase": {
+    "Enabled": true,
+    "CronSchedule": "0 0 1 * * *",
+    "WorkspaceId": "<rac-workspace-id>",
+    "TimeRangeDays": 1.0,
+    "StorageServiceUri": "https://<rac-storage-account>.blob.core.windows.net",
+    "StorageContainer": "reports",
+    "StoragePath": "register-case/journeys"
   }
 }
 ```
 
 Locally these are set as `Reports:TransferMaterial:<Setting>` keys in `local.settings.json`. In the deployment pipeline they must use the double-underscore form, `Reports__TransferMaterial__<Setting>`, because App Service settings are surfaced to the worker as environment variables.
+
+`StorageServiceUri` is the blob service endpoint of the storage account the report is uploaded to, and `StorageContainer` is the container within it. Each report sets its own account, so a report can write to a storage account in another subscription (as `RegisterCase` does).
 
 `CronSchedule` is the single source of truth for a report's schedule: the report's `TimerTrigger` resolves the same configuration value, so there is no separate schedule app setting to keep in step. Changing it in the App Service configuration restarts the host and takes effect without a redeploy.
 

@@ -11,6 +11,11 @@ public class ReportConfig
     public string CronSchedule { get; set; } = string.Empty;
     public string WorkspaceId { get; set; } = string.Empty;
     public double TimeRangeDays { get; set; } = 1.0;
+
+    /// <summary>
+    /// Blob service endpoint of the storage account the report is uploaded to
+    /// </summary>
+    public string StorageServiceUri { get; set; } = string.Empty;
     public string StorageContainer { get; set; } = string.Empty;
     public string StoragePath { get; set; } = string.Empty;
 }

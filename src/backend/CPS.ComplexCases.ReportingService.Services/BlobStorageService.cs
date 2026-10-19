@@ -1,23 +1,24 @@
-using Azure.Storage.Blobs;
-
 namespace CPS.ComplexCases.ReportingService.Services;
 
 public class BlobStorageService(
     ILogger<BlobStorageService> logger,
-    BlobServiceClient blobServiceClient
+    IBlobServiceClientFactory blobServiceClientFactory
 ) : IBlobStorageService
 {
-    private readonly BlobServiceClient _blobServiceClient = blobServiceClient;
+    private readonly IBlobServiceClientFactory _blobServiceClientFactory = blobServiceClientFactory;
     private readonly ILogger<BlobStorageService> _logger = logger;
 
     public async Task UploadBlobContentAsync(
+        Uri storageServiceUri,
         string containerName,
         string blobName,
         string content)
     {
         try
         {
-            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+            var containerClient = _blobServiceClientFactory
+                .GetClient(storageServiceUri)
+                .GetBlobContainerClient(containerName);
             await containerClient.CreateIfNotExistsAsync();
 
             var blobClient = containerClient.GetBlobClient(blobName);

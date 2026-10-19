@@ -42,6 +42,11 @@ steps:
             "slotSetting": false
           },
           { 
+            "name": "Reports__TransferMaterial__StorageServiceUri",
+            "value": "$(BlobStorageAccountUrl)",
+            "slotSetting": false
+          },
+          { 
             "name": "Reports__TransferMaterial__StorageContainer",
             "value": "lcc-reports-${{ parameters.environment }}",
             "slotSetting": false
@@ -52,8 +57,38 @@ steps:
             "slotSetting": false
           },
           { 
-            "name": "BlobStorageAccountUrl",
-            "value": "$(BlobStorageAccountUrl)",
+            "name": "Reports__RegisterCase__Enabled",
+            "value": "$(RegisterCaseEnabled)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__CronSchedule",
+            "value": "$(RegisterCaseCronSchedule)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__WorkspaceId",
+            "value": "$(RegisterCaseWorkspaceId)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__TimeRangeDays",
+            "value": "$(RegisterCaseTimeRangeDays)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__StorageServiceUri",
+            "value": "$(RegisterCaseStorageServiceUri)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__StorageContainer",
+            "value": "$(RegisterCaseStorageContainer)",
+            "slotSetting": false
+          },
+          { 
+            "name": "Reports__RegisterCase__StoragePath",
+            "value": "$(RegisterCaseStoragePath)",
             "slotSetting": false
           },
           {

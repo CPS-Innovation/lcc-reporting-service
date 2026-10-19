@@ -16,6 +16,7 @@ public class ReportingServiceTests
     private const string ReportKey = "TransferMaterial";
     private const string ContainerName = "test-container";
     private const string StoragePath = "case-materials/transfers";
+    private const string StorageServiceUri = "https://lccstorage.blob.core.windows.net";
     private const string FileName = "2024-01/LCC_Transfer_Report_2024-01-15.csv";
 
     public ReportingServiceTests()
@@ -34,10 +35,12 @@ public class ReportingServiceTests
         string workspaceId = "test-workspace-id",
         string storageContainer = ContainerName,
         string storagePath = StoragePath,
-        double timeRangeDays = 1.0) => new()
+        double timeRangeDays = 1.0,
+        string storageServiceUri = StorageServiceUri) => new()
         {
             Enabled = enabled,
             WorkspaceId = workspaceId,
+            StorageServiceUri = storageServiceUri,
             StorageContainer = storageContainer,
             StoragePath = storagePath,
             TimeRangeDays = timeRangeDays
@@ -144,7 +147,7 @@ public class ReportingServiceTests
 
         // Assert
         _blobStorageServiceMock.Verify(
-            x => x.UploadBlobContentAsync(ContainerName, It.IsAny<string>(), It.IsAny<string>()),
+            x => x.UploadBlobContentAsync(new Uri(StorageServiceUri), ContainerName, It.IsAny<string>(), It.IsAny<string>()),
             Times.Once);
     }
 
@@ -172,7 +175,7 @@ public class ReportingServiceTests
             Times.Never);
 
         _blobStorageServiceMock.Verify(
-            x => x.UploadBlobContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            x => x.UploadBlobContentAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
             Times.Never);
     }
 
@@ -234,7 +237,59 @@ public class ReportingServiceTests
 
         // Assert
         _blobStorageServiceMock.Verify(
-            x => x.UploadBlobContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            x => x.UploadBlobContentAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("returned no data")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessReportAsync_ShouldUploadToConfiguredStorageAccount()
+    {
+        // Arrange
+        const string storageServiceUri = "https://racstorage.blob.core.windows.net";
+        var reportingService = CreateService(CreateConfig(storageServiceUri: storageServiceUri));
+        SetupProviderContent("header\r\nrow");
+
+        // Act
+        await reportingService.ProcessReportAsync(ReportKey);
+
+        // Assert
+        _blobStorageServiceMock.Verify(
+            x => x.UploadBlobContentAsync(
+                new Uri(storageServiceUri),
+                ContainerName,
+                $"{StoragePath}/{FileName}",
+                It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-uri")]
+    [InlineData("racstorage.blob.core.windows.net")]
+    [InlineData("http://racstorage.blob.core.windows.net")]
+    public async Task ProcessReportAsync_WithInvalidStorageServiceUri_ShouldThrowBeforeQuerying(string storageServiceUri)
+    {
+        // Arrange
+        var reportingService = CreateService(CreateConfig(storageServiceUri: storageServiceUri));
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => reportingService.ProcessReportAsync(ReportKey));
+
+        Assert.Contains("StorageServiceUri", exception.Message);
+
+        _reportProviderMock.Verify(
+            x => x.GenerateCsvContentAsync(It.IsAny<LogsQueryClient>(), It.IsAny<string>(), It.IsAny<double>()),
             Times.Never);
     }
 
@@ -252,6 +307,7 @@ public class ReportingServiceTests
         // Assert
         _blobStorageServiceMock.Verify(
             x => x.UploadBlobContentAsync(
+                new Uri(StorageServiceUri),
                 ContainerName,
                 $"{StoragePath}/{FileName}",
                 content),
@@ -274,6 +330,7 @@ public class ReportingServiceTests
         // Assert
         _blobStorageServiceMock.Verify(
             x => x.UploadBlobContentAsync(
+                new Uri(StorageServiceUri),
                 ContainerName,
                 $"case-materials/transfers/{FileName}",
                 It.IsAny<string>()),
@@ -292,7 +349,7 @@ public class ReportingServiceTests
 
         // Assert
         _blobStorageServiceMock.Verify(
-            x => x.UploadBlobContentAsync(ContainerName, FileName, It.IsAny<string>()),
+            x => x.UploadBlobContentAsync(new Uri(StorageServiceUri), ContainerName, FileName, It.IsAny<string>()),
             Times.Once);
     }
 

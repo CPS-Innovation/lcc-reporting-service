@@ -1,6 +1,5 @@
 using Azure.Identity;
 using Azure.Monitor.Query;
-using Azure.Storage.Blobs;
 using CPS.ComplexCases.ReportingService.Domain.Configuration;
 using CPS.ComplexCases.ReportingService.Services;
 using CPS.ComplexCases.ReportingService.Services.Providers;
@@ -40,24 +39,19 @@ var host = new HostBuilder()
             }
         });
 
-        services.AddSingleton<BlobServiceClient>(provider =>
-        {
-            string? blobStorageAccountUrl = context.Configuration["BlobStorageAccountUrl"];
-            if (string.IsNullOrEmpty(blobStorageAccountUrl))
-            {
-                throw new InvalidOperationException("BlobStorageAccountUrl configuration value is missing or empty.");
-            }
-            return new BlobServiceClient(new Uri(blobStorageAccountUrl), new DefaultAzureCredential());
-        });
+        var credential = new DefaultAzureCredential();
+
+        services.AddSingleton<IBlobServiceClientFactory>(new BlobServiceClientFactory(credential));
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
-        services.AddSingleton<LogsQueryClient>(new LogsQueryClient(new DefaultAzureCredential()));
+        services.AddSingleton<LogsQueryClient>(new LogsQueryClient(credential));
 
         // Each report's settings are bound from the root so that ReportsOptions.Reports maps to the
         // "Reports" configuration section. New reports are added by registering a provider below.
         services.Configure<ReportsOptions>(context.Configuration);
 
         services.AddSingleton<IReportProvider, TransferMaterialReportProvider>();
+        services.AddSingleton<IReportProvider, RegisterCaseReportProvider>();
         services.AddSingleton<IReportingService, ReportingService>();
     })
     .Build();
