@@ -5,8 +5,10 @@ public class BlobStorageService(
     IBlobServiceClientFactory blobServiceClientFactory
 ) : IBlobStorageService
 {
-    private readonly IBlobServiceClientFactory _blobServiceClientFactory = blobServiceClientFactory;
-    private readonly ILogger<BlobStorageService> _logger = logger;
+    private readonly IBlobServiceClientFactory _blobServiceClientFactory =
+        blobServiceClientFactory ?? throw new ArgumentNullException(nameof(blobServiceClientFactory));
+    private readonly ILogger<BlobStorageService> _logger =
+        logger ?? throw new ArgumentNullException(nameof(logger));
 
     public async Task UploadBlobContentAsync(
         Uri storageServiceUri,
@@ -14,6 +16,11 @@ public class BlobStorageService(
         string blobName,
         string content)
     {
+        ArgumentNullException.ThrowIfNull(storageServiceUri);
+        ArgumentException.ThrowIfNullOrWhiteSpace(containerName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(blobName);
+        ArgumentNullException.ThrowIfNull(content);
+
         try
         {
             var containerClient = _blobServiceClientFactory

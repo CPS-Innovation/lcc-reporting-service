@@ -28,6 +28,70 @@ public class BlobStorageServiceTests
     }
 
     [Fact]
+    public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => new BlobStorageService(null!, _blobServiceClientFactoryMock.Object));
+
+        Assert.Equal("logger", exception.ParamName);
+    }
+
+    [Fact]
+    public void Constructor_WithNullBlobServiceClientFactory_ShouldThrowArgumentNullException()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => new BlobStorageService(_loggerMock.Object, null!));
+
+        Assert.Equal("blobServiceClientFactory", exception.ParamName);
+    }
+
+    [Fact]
+    public async Task UploadBlobContentAsync_WithNullStorageServiceUri_ShouldThrowArgumentNullException()
+    {
+        var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _blobStorageService.UploadBlobContentAsync(null!, "container", "blob", "content"));
+
+        Assert.Equal("storageServiceUri", exception.ParamName);
+        _blobServiceClientFactoryMock.Verify(x => x.GetClient(It.IsAny<Uri>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task UploadBlobContentAsync_WithInvalidContainerName_ShouldThrowArgumentException(string? containerName)
+    {
+        var exception = await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => _blobStorageService.UploadBlobContentAsync(StorageServiceUri, containerName!, "blob", "content"));
+
+        Assert.Equal("containerName", exception.ParamName);
+        _blobServiceClientFactoryMock.Verify(x => x.GetClient(It.IsAny<Uri>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task UploadBlobContentAsync_WithInvalidBlobName_ShouldThrowArgumentException(string? blobName)
+    {
+        var exception = await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => _blobStorageService.UploadBlobContentAsync(StorageServiceUri, "container", blobName!, "content"));
+
+        Assert.Equal("blobName", exception.ParamName);
+        _blobServiceClientFactoryMock.Verify(x => x.GetClient(It.IsAny<Uri>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadBlobContentAsync_WithNullContent_ShouldThrowArgumentNullException()
+    {
+        var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _blobStorageService.UploadBlobContentAsync(StorageServiceUri, "container", "blob", null!));
+
+        Assert.Equal("content", exception.ParamName);
+        _blobServiceClientFactoryMock.Verify(x => x.GetClient(It.IsAny<Uri>()), Times.Never);
+    }
+
+    [Fact]
     public async Task UploadBlobContentAsync_ShouldUploadContentToBlobStorage()
     {
         // Arrange

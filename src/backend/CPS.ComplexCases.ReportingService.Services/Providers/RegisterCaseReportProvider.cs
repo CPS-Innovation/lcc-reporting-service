@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Text;
 using Azure;
@@ -19,7 +20,9 @@ public class RegisterCaseReportProvider(ILogger<RegisterCaseReportProvider> logg
 
     public const string CsvHeader = "JourneyId,Username,AreaOrDivision,StartedAt,CompletedAt,DropOffScreen,Urn,Outcome";
 
-    private const string DateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+    private const string DateTimeFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+
+    private static readonly SearchValues<char> CsvSpecialChars = SearchValues.Create(",\"\r\n");
 
     private const string Query = """
         let events =
@@ -177,7 +180,7 @@ public class RegisterCaseReportProvider(ILogger<RegisterCaseReportProvider> logg
         if (string.IsNullOrEmpty(value))
             return string.Empty;
 
-        return value.IndexOfAny([',', '"', '\r', '\n']) >= 0
+        return value.AsSpan().ContainsAny(CsvSpecialChars)
             ? $"\"{value.Replace("\"", "\"\"")}\""
             : value;
     }

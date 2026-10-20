@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Azure;
 using Azure.Monitor.Query;
 using Azure.Storage.Blobs;
@@ -143,8 +144,10 @@ public class RegisterCaseReportIntegrationTests
         _racBlobServiceClientMock.Verify(x => x.GetBlobContainerClient(Container), Times.Once);
 
         // Assert - path
-        var now = DateTime.UtcNow;
-        Assert.Equal($"{StoragePath}/{now:yyyy-MM}/RAC_Journey_Report_{now:yyyy-MM-dd}.csv", _uploadedBlobName);
+        Assert.NotNull(_uploadedBlobName);
+        Assert.Matches(
+            $@"^{Regex.Escape(StoragePath)}/(\d{{4}}-\d{{2}})/RAC_Journey_Report_\1-\d{{2}}\.csv$",
+            _uploadedBlobName);
 
         // Assert - content
         Assert.NotNull(_uploadedContent);

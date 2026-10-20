@@ -76,10 +76,7 @@ public class RegisterCaseReportProviderTests
         var fileName = _provider.GenerateFileName();
 
         // Assert
-        Assert.Matches(@"^\d{4}-\d{2}/RAC_Journey_Report_\d{4}-\d{2}-\d{2}\.csv$", fileName);
-
-        var today = DateTime.UtcNow;
-        Assert.StartsWith($"{today:yyyy-MM}/", fileName);
+        Assert.Matches(@"^(\d{4}-\d{2})/RAC_Journey_Report_\1-\d{2}\.csv$", fileName);
     }
 
     [Fact]

@@ -91,7 +91,7 @@ Each report is implemented as an `IReportProvider` in [CPS.ComplexCases.Reportin
 }
 ```
 
-Locally these are set as `Reports:TransferMaterial:<Setting>` keys in `local.settings.json`. In the deployment pipeline they must use the double-underscore form, `Reports__TransferMaterial__<Setting>`, because App Service settings are surfaced to the worker as environment variables.
+Settings are keyed as `Reports__<ReportKey>__<Setting>` (for example `Reports__RegisterCase__WorkspaceId`), both in `local.settings.json` and in the deployment pipeline. App Service settings are surfaced to the worker as environment variables, which require the double-underscore form; `local.settings.example.json` uses the same form so local and deployed configuration match. Locally the colon form (`Reports:<ReportKey>:<Setting>`) also works, but prefer the double-underscore form for consistency.
 
 `StorageServiceUri` is the blob service endpoint of the storage account the report is uploaded to, and `StorageContainer` is the container within it. Each report sets its own account, so a report can write to a storage account in another subscription (as `RegisterCase` does).
 
