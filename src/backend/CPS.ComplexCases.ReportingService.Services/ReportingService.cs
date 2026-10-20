@@ -53,14 +53,18 @@ public class ReportingService : IReportingService
             if (string.IsNullOrWhiteSpace(config.StorageContainer))
                 throw new InvalidOperationException($"Reports:{reportKey}:StorageContainer is missing or empty.");
 
+            var storageServiceUri = ParseStorageServiceUri(reportKey, config.StorageServiceUri);
+
             var content = await provider.GenerateCsvContentAsync(_logsQueryClient, config.WorkspaceId, config.TimeRangeDays);
 
             if (string.IsNullOrEmpty(content))
             {
+                _logger.LogInformation("Report {ReportKey} returned no data; skipping upload.", reportKey);
                 return;
             }
 
             await _blobStorageService.UploadBlobContentAsync(
+                storageServiceUri,
                 config.StorageContainer,
                 BuildBlobPath(config.StoragePath, provider.GenerateFileName()),
                 content);
@@ -82,6 +86,17 @@ public class ReportingService : IReportingService
         return _reportsOptions.Reports
             .FirstOrDefault(entry => string.Equals(entry.Key, reportKey, StringComparison.OrdinalIgnoreCase))
             .Value;
+    }
+
+    private static Uri ParseStorageServiceUri(string reportKey, string? storageServiceUri)
+    {
+        if (string.IsNullOrWhiteSpace(storageServiceUri))
+            throw new InvalidOperationException($"Reports:{reportKey}:StorageServiceUri is missing or empty.");
+
+        if (!Uri.TryCreate(storageServiceUri.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException($"Reports:{reportKey}:StorageServiceUri must be an absolute https URI.");
+
+        return uri;
     }
 
     private static string BuildBlobPath(string storagePath, string fileName)
